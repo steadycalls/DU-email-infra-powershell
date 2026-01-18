@@ -146,17 +146,8 @@ $logger.Info("=" * 80, $null, $null)
 $logger.Info("Email Infrastructure Automation Starting", $null, $null)
 $logger.Info("=" * 80, $null, $null)
 
-# Validate API credentials
-try {
-    $forwardEmailClient.ValidateCredentials()
-    $cloudflareClient.ValidateCredentials()
-    Write-Host "API credentials validated" -ForegroundColor Green
-}
-catch {
-    $logger.Critical("API credential validation failed: $($_.Exception.Message)", $null, $null)
-    Write-Host "API credential validation failed: $($_.Exception.Message)" -ForegroundColor Red
-    exit 1
-}
+# API credentials will be validated on first use
+Write-Host "API clients ready (credentials will be validated on first use)" -ForegroundColor Green
 
 # Load domains from file
 if (-not (Test-Path $config.DomainsFile)) {
