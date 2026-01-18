@@ -179,16 +179,23 @@ function Process-Domain {
     )
     
     $logger.Info("Processing domain", $domain, $null)
+    Write-Host ""
+    Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Processing: $domain" -ForegroundColor Cyan
+    Write-Host "$('=' * 80)" -ForegroundColor DarkGray
     
     # Get or create domain record
     $record = $stateManager.GetDomain($domain)
     if (-not $record) {
         $record = $stateManager.AddDomain($domain)
+        Write-Host "  ✓ Domain record created" -ForegroundColor Green
+    } else {
+        Write-Host "  ✓ Domain record loaded (State: $($record.State))" -ForegroundColor Green
     }
     
     # Skip if already completed
     if ($record.State -eq [DomainState]::Completed) {
         $logger.Info("Domain already completed, skipping", $domain, $null)
+        Write-Host "  ✓ Domain already completed - skipping" -ForegroundColor Yellow
         return $record
     }
     
@@ -203,16 +210,19 @@ function Process-Domain {
     try {
         # Step 1: Add domain to Forward Email (if not already added)
         if ($record.State -eq [DomainState]::Pending) {
+            Write-Host "  [1/4] Adding domain to Forward Email..." -ForegroundColor Yellow
             $logger.Info("Adding domain to Forward Email", $domain, $null)
             
             try {
                 # Check if domain already exists
                 if ($forwardEmailClient.DomainExists($domain)) {
                     $logger.Info("Domain already exists in Forward Email", $domain, $null)
+                    Write-Host "        ✓ Domain already exists in Forward Email" -ForegroundColor Green
                     $domainInfo = $forwardEmailClient.GetDomain($domain)
                 } else {
                     $domainInfo = $forwardEmailClient.CreateDomain($domain)
                     $logger.Info("Domain added to Forward Email", $domain, @{DomainId = $domainInfo.id})
+                    Write-Host "        ✓ Domain added to Forward Email" -ForegroundColor Green
                 }
                 
                 $record.ForwardEmailDomainId = $domainInfo.id
@@ -222,6 +232,7 @@ function Process-Domain {
             catch {
                 $errorMessage = $_.Exception.Message
                 $logger.Error("Failed to add domain to Forward Email: $errorMessage", $domain, $null)
+                Write-Host "        ✗ ERROR: $errorMessage" -ForegroundColor Red
                 $record.AddError("forward_email_add", $errorMessage, "FORWARD_EMAIL_ERROR", @{})
                 $record.MarkFailed()
                 $stateManager.UpdateDomain($domain, $record)
@@ -231,6 +242,7 @@ function Process-Domain {
         
         # Step 2: Configure DNS records in Cloudflare (if not already configured)
         if ($record.State -eq [DomainState]::ForwardEmailAdded) {
+            Write-Host "  [2/4] Configuring DNS records in Cloudflare..." -ForegroundColor Yellow
             $logger.Info("Configuring DNS records in Cloudflare", $domain, $null)
             
             try {
@@ -238,6 +250,7 @@ function Process-Domain {
                 $zoneId = $cloudflareClient.GetZoneId($domain)
                 $record.CloudflareZoneId = $zoneId
                 $logger.Info("Found Cloudflare zone", $domain, @{ZoneId = $zoneId})
+                Write-Host "        ✓ Found Cloudflare zone" -ForegroundColor Green
                 
                 # Get domain info from Forward Email to get required DNS records
                 $domainInfo = $forwardEmailClient.GetDomain($domain)
@@ -288,6 +301,8 @@ function Process-Domain {
                 }
                 
                 $logger.Info("DNS records configured", $domain, @{RecordCount = $record.DnsRecords.Count})
+                Write-Host "        ✓ Created TXT verification record" -ForegroundColor Green
+                Write-Host "        ✓ Created MX records (mx1 + mx2)" -ForegroundColor Green
                 
                 $record.State = [DomainState]::DnsConfigured
                 $stateManager.UpdateDomain($domain, $record)
@@ -295,6 +310,7 @@ function Process-Domain {
             catch {
                 $errorMessage = $_.Exception.Message
                 $logger.Error("Failed to configure DNS records: $errorMessage", $domain, $null)
+                Write-Host "        ✗ ERROR: $errorMessage" -ForegroundColor Red
                 $record.AddError("dns_configuration", $errorMessage, "DNS_CONFIG_ERROR", @{})
                 $record.MarkFailed()
                 $stateManager.UpdateDomain($domain, $record)
@@ -304,6 +320,7 @@ function Process-Domain {
         
         # Step 3: Verify domain (with polling and retry)
         if ($record.State -eq [DomainState]::DnsConfigured -or $record.State -eq [DomainState]::Verifying) {
+            Write-Host "  [3/4] Verifying domain ownership (DNS propagation)..." -ForegroundColor Yellow
             $logger.Info("Verifying domain", $domain, $null)
             $record.State = [DomainState]::Verifying
             $stateManager.UpdateDomain($domain, $record)
@@ -319,11 +336,13 @@ function Process-Domain {
                     
                     if ($verifyResult.verified -eq $true) {
                         $logger.Info("Domain verified successfully", $domain, @{Attempts = $verificationAttempts})
+                        Write-Host "        ✓ Domain verified successfully (attempt $verificationAttempts/$($config.VerificationMaxAttempts))" -ForegroundColor Green
                         $verified = $true
                         break
                     }
                     
                     $logger.Info("Domain not yet verified, waiting...", $domain, @{Attempt = $verificationAttempts; MaxAttempts = $config.VerificationMaxAttempts})
+                    Write-Host "        ⏳ Not verified yet, waiting 30s... (attempt $verificationAttempts/$($config.VerificationMaxAttempts))" -ForegroundColor DarkYellow
                     Start-Sleep -Seconds $config.VerificationPollInterval
                 }
                 catch {
@@ -335,6 +354,7 @@ function Process-Domain {
             if (-not $verified) {
                 $errorMessage = "Domain verification timed out after $verificationAttempts attempts"
                 $logger.Error($errorMessage, $domain, $null)
+                Write-Host "        ✗ ERROR: $errorMessage" -ForegroundColor Red
                 $record.AddError("verification", $errorMessage, "VERIFICATION_TIMEOUT", @{Attempts = $verificationAttempts})
                 $record.MarkFailed()
                 $stateManager.UpdateDomain($domain, $record)
@@ -347,6 +367,7 @@ function Process-Domain {
         
         # Step 4: Create aliases
         if ($record.State -eq [DomainState]::Verified) {
+            Write-Host "  [4/4] Creating email aliases..." -ForegroundColor Yellow
             $logger.Info("Creating email aliases", $domain, $null)
             
             foreach ($aliasConfig in $config.Aliases) {
@@ -368,6 +389,7 @@ function Process-Domain {
                     }
                     
                     $logger.Info("Created alias: $($aliasConfig.Name)@$domain", $domain, $null)
+                    Write-Host "        ✓ Created alias: $($aliasConfig.Name)@$domain" -ForegroundColor Green
                 }
                 catch {
                     # Log alias creation failure but don't fail the entire domain
@@ -384,6 +406,9 @@ function Process-Domain {
             $record.MarkCompleted()
             $stateManager.UpdateDomain($domain, $record)
             $logger.Info("Domain processing completed successfully", $domain, $null)
+            Write-Host ""
+            Write-Host "  ✓ COMPLETED: $domain is fully configured!" -ForegroundColor Green
+            Write-Host "$('=' * 80)" -ForegroundColor DarkGray
         }
     }
     catch {
