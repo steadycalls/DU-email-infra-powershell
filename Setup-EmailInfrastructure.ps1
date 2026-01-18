@@ -210,7 +210,7 @@ function Process-Domain {
     try {
         # Step 1: Add domain to Forward Email (if not already added)
         if ($record.State -eq [DomainState]::Pending) {
-            Write-Host "  [1/4] Adding domain to Forward Email..." -ForegroundColor Yellow
+            Write-Host "  [1/5] Adding domain to Forward Email..." -ForegroundColor Yellow
             $logger.Info("Adding domain to Forward Email", $domain, $null)
             
             try {
@@ -242,7 +242,7 @@ function Process-Domain {
         
         # Step 2: Configure DNS records in Cloudflare (if not already configured)
         if ($record.State -eq [DomainState]::ForwardEmailAdded) {
-            Write-Host "  [2/4] Configuring DNS records in Cloudflare..." -ForegroundColor Yellow
+            Write-Host "  [2/5] Configuring DNS records in Cloudflare..." -ForegroundColor Yellow
             $logger.Info("Configuring DNS records in Cloudflare", $domain, $null)
             
             try {
@@ -320,7 +320,7 @@ function Process-Domain {
         
         # Step 3: Verify domain (with polling and retry)
         if ($record.State -eq [DomainState]::DnsConfigured -or $record.State -eq [DomainState]::Verifying) {
-            Write-Host "  [3/4] Verifying domain ownership (DNS propagation)..." -ForegroundColor Yellow
+            Write-Host "  [3/5] Verifying domain ownership (DNS propagation)..." -ForegroundColor Yellow
             $logger.Info("Verifying domain", $domain, $null)
             $record.State = [DomainState]::Verifying
             $stateManager.UpdateDomain($domain, $record)
@@ -367,7 +367,7 @@ function Process-Domain {
         
         # Step 4: Create aliases
         if ($record.State -eq [DomainState]::Verified) {
-            Write-Host "  [4/4] Creating email aliases..." -ForegroundColor Yellow
+            Write-Host "  [4/5] Creating email aliases..." -ForegroundColor Yellow
             $logger.Info("Creating email aliases", $domain, $null)
             
             foreach ($aliasConfig in $config.Aliases) {
@@ -401,14 +401,106 @@ function Process-Domain {
             $stateManager.UpdateDomain($domain, $record)
         }
         
-        # Mark as completed
+        # Step 5: Final validation before marking as completed
         if ($record.State -eq [DomainState]::AliasesCreated) {
-            $record.MarkCompleted()
-            $stateManager.UpdateDomain($domain, $record)
-            $logger.Info("Domain processing completed successfully", $domain, $null)
-            Write-Host ""
-            Write-Host "  ✓ COMPLETED: $domain is fully configured!" -ForegroundColor Green
-            Write-Host "$('=' * 80)" -ForegroundColor DarkGray
+            Write-Host "  [5/5] Running final validation..." -ForegroundColor Yellow
+            
+            $validationPassed = $false
+            try {
+                # Perform final validation checks
+                $validationResult = [PSCustomObject]@{
+                    ForwardEmailExists = $false
+                    ForwardEmailVerified = $false
+                    CloudflareTxtRecord = $false
+                    CloudflareMxRecords = $false
+                }
+                
+                # Check Forward Email
+                try {
+                    $feDomain = $forwardEmailClient.GetDomain($domain)
+                    if ($feDomain) {
+                        $validationResult.ForwardEmailExists = $true
+                        Write-Host "        ✓ Domain exists in Forward Email" -ForegroundColor Green
+                        
+                        $verifyResult = $forwardEmailClient.VerifyDomain($domain)
+                        if ($verifyResult.verified -eq $true) {
+                            $validationResult.ForwardEmailVerified = $true
+                            Write-Host "        ✓ Domain is verified in Forward Email" -ForegroundColor Green
+                        } else {
+                            Write-Host "        ✗ Domain not verified in Forward Email" -ForegroundColor Red
+                        }
+                    }
+                }
+                catch {
+                    Write-Host "        ✗ Could not validate Forward Email: $($_.Exception.Message)" -ForegroundColor Red
+                }
+                
+                # Check Cloudflare DNS
+                try {
+                    $zoneId = $cloudflareClient.GetZoneId($domain)
+                    if ($zoneId) {
+                        $dnsRecords = $cloudflareClient.ListDnsRecords($zoneId, $null, $null)
+                        
+                        # Check TXT record
+                        $txtRecords = $dnsRecords.result | Where-Object { 
+                            $_.type -eq "TXT" -and $_.name -eq $domain -and $_.content -like "*forward-email*"
+                        }
+                        if ($txtRecords) {
+                            $validationResult.CloudflareTxtRecord = $true
+                            Write-Host "        ✓ TXT verification record exists" -ForegroundColor Green
+                        } else {
+                            Write-Host "        ✗ TXT verification record missing" -ForegroundColor Red
+                        }
+                        
+                        # Check MX records
+                        $mxRecords = $dnsRecords.result | Where-Object { $_.type -eq "MX" -and $_.name -eq $domain }
+                        $mx1 = $mxRecords | Where-Object { $_.content -like "*mx1.forwardemail.net*" }
+                        $mx2 = $mxRecords | Where-Object { $_.content -like "*mx2.forwardemail.net*" }
+                        
+                        if ($mx1 -and $mx2) {
+                            $validationResult.CloudflareMxRecords = $true
+                            Write-Host "        ✓ MX records exist (mx1 + mx2)" -ForegroundColor Green
+                        } else {
+                            Write-Host "        ✗ MX records incomplete" -ForegroundColor Red
+                        }
+                    }
+                }
+                catch {
+                    Write-Host "        ✗ Could not validate Cloudflare DNS: $($_.Exception.Message)" -ForegroundColor Red
+                }
+                
+                # Check if all validations passed
+                if ($validationResult.ForwardEmailExists -and $validationResult.ForwardEmailVerified -and 
+                    $validationResult.CloudflareTxtRecord -and $validationResult.CloudflareMxRecords) {
+                    $validationPassed = $true
+                }
+            }
+            catch {
+                $logger.Warning("Final validation failed: $($_.Exception.Message)", $domain, $null)
+                Write-Host "        ✗ Validation error: $($_.Exception.Message)" -ForegroundColor Red
+            }
+            
+            if ($validationPassed) {
+                $record.MarkCompleted()
+                $stateManager.UpdateDomain($domain, $record)
+                $logger.Info("Domain processing completed successfully", $domain, $null)
+                Write-Host ""
+                Write-Host "  ✓ COMPLETED: $domain is fully configured and validated!" -ForegroundColor Green
+                Write-Host "$('=' * 80)" -ForegroundColor DarkGray
+            } else {
+                $errorMessage = "Final validation failed - domain may not be fully operational"
+                $logger.Warning($errorMessage, $domain, $null)
+                Write-Host ""
+                Write-Host "  ⚠ WARNING: $domain setup completed but validation failed" -ForegroundColor Yellow
+                Write-Host "    Domain has been configured but may need manual verification" -ForegroundColor Yellow
+                Write-Host "$('=' * 80)" -ForegroundColor DarkGray
+                
+                # Mark as completed anyway since setup steps finished
+                # But add a warning to the record
+                $record.AddError("validation", $errorMessage, "VALIDATION_WARNING", @{})
+                $record.MarkCompleted()
+                $stateManager.UpdateDomain($domain, $record)
+            }
         }
     }
     catch {
