@@ -23,7 +23,7 @@ class EmailInfraConfig {
     [int]$VerificationTimeoutSeconds = 1200
     
     # Processing Configuration
-    [int]$ConcurrentDomains = 5
+    [int]$ConcurrentDomains = 10
     [int]$BatchSize = 10
     
     # File Paths

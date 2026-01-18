@@ -36,7 +36,7 @@
     .\Setup-EmailInfrastructure.ps1 -DomainsFile "data/domains.txt"
 
 .EXAMPLE
-    .\Setup-EmailInfrastructure.ps1 -DomainsFile "cloudflare_domains.txt" -LogLevel DEBUG -ConcurrentDomains 10
+    .\Setup-EmailInfrastructure.ps1 -DomainsFile "cloudflare_domains.txt" -LogLevel DEBUG -ConcurrentDomains 20
 
 .NOTES
     Requires PowerShell 7+ and the following environment variables:
@@ -63,7 +63,7 @@ param(
     [string]$LogLevel = "INFO",
     
     [Parameter(Mandatory=$false)]
-    [int]$ConcurrentDomains = 5,
+    [int]$ConcurrentDomains = 10,
     
     [Parameter(Mandatory=$false)]
     [switch]$DryRun
