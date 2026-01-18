@@ -1,4 +1,3 @@
-#!/usr/bin/env pwsh
 <#
 .SYNOPSIS
     Automates email infrastructure setup for bulk domains using Forward Email and Cloudflare.
