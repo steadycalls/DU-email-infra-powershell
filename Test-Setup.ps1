@@ -61,8 +61,9 @@ $envVars = @("FORWARD_EMAIL_API_KEY", "CLOUDFLARE_API_TOKEN")
 $envVarMissing = $false
 
 foreach ($varName in $envVars) {
-    if ($env:$varName) {
-        $maskedValue = $env:$varName.Substring(0, [Math]::Min(8, $env:$varName.Length)) + "..."
+    $envValue = [Environment]::GetEnvironmentVariable($varName)
+    if ($envValue) {
+        $maskedValue = $envValue.Substring(0, [Math]::Min(8, $envValue.Length)) + "..."
         Write-Host "  [PASS] $varName is set ($maskedValue)" -ForegroundColor Green
     } else {
         Write-Host "  [FAIL] $varName is not set" -ForegroundColor Red
@@ -155,7 +156,8 @@ if (-not $envVarMissing) {
         
         # Test Forward Email client
         try {
-            $forwardEmailClient = New-ForwardEmailClient -ApiKey $env:FORWARD_EMAIL_API_KEY -RetryConfig $retryConfig
+            $apiKey = [Environment]::GetEnvironmentVariable("FORWARD_EMAIL_API_KEY")
+            $forwardEmailClient = New-ForwardEmailClient -ApiKey $apiKey -RetryConfig $retryConfig
             $domains = $forwardEmailClient.ListDomains()
             Write-Host "  [PASS] Forward Email API connection successful" -ForegroundColor Green
             Write-Host "    - Domains in account: $($domains.result.Count)" -ForegroundColor Gray
@@ -166,7 +168,8 @@ if (-not $envVarMissing) {
         
         # Test Cloudflare client
         try {
-            $cloudflareClient = New-CloudflareClient -ApiToken $env:CLOUDFLARE_API_TOKEN -RetryConfig $retryConfig
+            $apiToken = [Environment]::GetEnvironmentVariable("CLOUDFLARE_API_TOKEN")
+            $cloudflareClient = New-CloudflareClient -ApiToken $apiToken -RetryConfig $retryConfig
             $zones = $cloudflareClient.ListZones($null)
             Write-Host "  [PASS] Cloudflare API connection successful" -ForegroundColor Green
             Write-Host "    - Zones in account: $($zones.result.Count)" -ForegroundColor Gray
