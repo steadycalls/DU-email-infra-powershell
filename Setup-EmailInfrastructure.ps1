@@ -130,12 +130,18 @@ $stateManager = New-StateManager -StateFile $config.StateFile
 Write-Host "State manager initialized" -ForegroundColor Green
 
 # Initialize API clients
-$forwardEmailClient = New-ForwardEmailClient -ApiKey $env:FORWARD_EMAIL_API_KEY -ApiBase $config.ForwardEmailApiBase
-$cloudflareClient = New-CloudflareClient -ApiToken $env:CLOUDFLARE_API_TOKEN -ApiBase $config.CloudflareApiBase
+$retryConfig = @{
+    MaxRetries = $config.MaxRetries
+    InitialRetryDelay = $config.InitialRetryDelay
+    MaxRetryDelay = $config.MaxRetryDelay
+    RateLimitDelay = $config.RateLimitDelay
+}
+$forwardEmailClient = New-ForwardEmailClient -ApiKey $env:FORWARD_EMAIL_API_KEY -BaseUrl $config.ForwardEmailApiBase -RetryConfig $retryConfig
+$cloudflareClient = New-CloudflareClient -ApiToken $env:CLOUDFLARE_API_TOKEN -BaseUrl $config.CloudflareApiBase -RetryConfig $retryConfig
 Write-Host "API clients initialized" -ForegroundColor Green
 
 # Initialize logger
-$logger = New-Logger -LogFile $config.LogFile -LogLevel $config.LogLevel
+$logger = New-Logger -LogFile $config.LogFile -MinLevel $config.LogLevel
 $logger.Info("=" * 80, $null, $null)
 $logger.Info("Email Infrastructure Automation Starting", $null, $null)
 $logger.Info("=" * 80, $null, $null)
