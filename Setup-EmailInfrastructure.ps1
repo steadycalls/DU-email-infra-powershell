@@ -203,7 +203,7 @@ if ($DryRun) {
         }
         
         # Skip if already completed
-        if ($record.State -eq [DomainState]::Completed) {
+        if ($record.State -eq "Completed") {
             $logger.Info("Domain already completed, skipping", $domain, $null)
             Write-Host "  ✓ Domain already completed - skipping" -ForegroundColor Yellow
             $completedCount++
@@ -211,7 +211,7 @@ if ($DryRun) {
         }
         
         # Skip if failed and max retries exceeded
-        if ($record.State -eq [DomainState]::Failed -and $record.Attempts -ge $config.MaxRetries) {
+        if ($record.State -eq "Failed" -and $record.Attempts -ge $config.MaxRetries) {
             $logger.Warning("Domain failed with max retries, skipping", $domain, @{Attempts = $record.Attempts})
             Write-Host "  ✗ Domain failed with max retries - skipping" -ForegroundColor Red
             $failedCount++
@@ -222,7 +222,7 @@ if ($DryRun) {
         
         try {
             # Step 1: Add domain to Forward Email (if not already added)
-            if ($record.State -eq [DomainState]::Pending) {
+            if ($record.State -eq "Pending") {
                 Write-Host "  [1/5] Adding domain to Forward Email..." -ForegroundColor Yellow
                 $logger.Info("Adding domain to Forward Email", $domain, $null)
                 
@@ -239,7 +239,7 @@ if ($DryRun) {
                     }
                     
                     $record.ForwardEmailDomainId = $domainInfo.id
-                    $record.State = [DomainState]::ForwardEmailAdded
+                    $record.State = "ForwardEmailAdded"
                     $stateManager.UpdateDomain($domain, $record)
                 }
                 catch {
@@ -255,7 +255,7 @@ if ($DryRun) {
             }
             
             # Step 2: Configure DNS records in Cloudflare (if not already configured)
-            if ($record.State -eq [DomainState]::ForwardEmailAdded) {
+            if ($record.State -eq "ForwardEmailAdded") {
                 Write-Host "  [2/5] Configuring DNS records in Cloudflare..." -ForegroundColor Yellow
                 $logger.Info("Configuring DNS records in Cloudflare", $domain, $null)
                 
@@ -278,7 +278,7 @@ if ($DryRun) {
                     $logger.Info("Added MX records", $domain, @{MX1 = $mx1.id; MX2 = $mx2.id})
                     Write-Host "        ✓ Added MX records (mx1 + mx2)" -ForegroundColor Green
                     
-                    $record.State = [DomainState]::DnsConfigured
+                    $record.State = "DnsConfigured"
                     $stateManager.UpdateDomain($domain, $record)
                 }
                 catch {
@@ -294,7 +294,7 @@ if ($DryRun) {
             }
             
             # Step 3: Verify domain ownership (with retry for DNS propagation)
-            if ($record.State -eq [DomainState]::DnsConfigured) {
+            if ($record.State -eq "DnsConfigured") {
                 Write-Host "  [3/5] Verifying domain ownership..." -ForegroundColor Yellow
                 $logger.Info("Verifying domain ownership", $domain, $null)
                 
@@ -335,12 +335,12 @@ if ($DryRun) {
                     continue
                 }
                 
-                $record.State = [DomainState]::Verified
+                $record.State = "Verified"
                 $stateManager.UpdateDomain($domain, $record)
             }
             
             # Step 4: Create email aliases
-            if ($record.State -eq [DomainState]::Verified) {
+            if ($record.State -eq "Verified") {
                 Write-Host "  [4/5] Creating email aliases..." -ForegroundColor Yellow
                 $logger.Info("Creating email aliases", $domain, $null)
                 
@@ -369,12 +369,12 @@ if ($DryRun) {
                 }
                 
                 $logger.Info("Created $aliasesCreated aliases", $domain, $null)
-                $record.State = [DomainState]::AliasesCreated
+                $record.State = "AliasesCreated"
                 $stateManager.UpdateDomain($domain, $record)
             }
             
             # Step 5: Final validation
-            if ($record.State -eq [DomainState]::AliasesCreated) {
+            if ($record.State -eq "AliasesCreated") {
                 Write-Host "  [5/5] Running final validation..." -ForegroundColor Yellow
                 $logger.Info("Running final validation", $domain, $null)
                 
