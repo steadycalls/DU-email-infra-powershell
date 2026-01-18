@@ -282,3 +282,5 @@ function New-StateManager {
 }
 
 Export-ModuleMember -Function New-StateManager
+# Export the enum so it can be used in scripts
+Export-ModuleMember -Variable DomainState

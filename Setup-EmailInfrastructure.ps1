@@ -100,7 +100,11 @@ Write-Host "Email Infrastructure Automation Starting" -ForegroundColor Cyan
 Write-Host "=" * 80 -ForegroundColor Cyan
 
 try {
-    $config = [Config]::new($ConfigFile)
+    $config = if ($ConfigFile -and (Test-Path $ConfigFile)) {
+        New-EmailInfraConfig -ConfigPath $ConfigFile
+    } else {
+        New-EmailInfraConfig
+    }
     
     # Override config with command-line parameters
     if ($PSBoundParameters.ContainsKey('DomainsFile')) { $config.DomainsFile = $DomainsFile }
@@ -122,16 +126,16 @@ catch {
 }
 
 # Initialize state manager
-$stateManager = [StateManager]::new($config.StateFile)
+$stateManager = New-StateManager -StateFile $config.StateFile
 Write-Host "State manager initialized" -ForegroundColor Green
 
 # Initialize API clients
-$forwardEmailClient = [ForwardEmailClient]::new($env:FORWARD_EMAIL_API_KEY, $config.ForwardEmailApiBase)
-$cloudflareClient = [CloudflareClient]::new($env:CLOUDFLARE_API_TOKEN, $config.CloudflareApiBase)
+$forwardEmailClient = New-ForwardEmailClient -ApiKey $env:FORWARD_EMAIL_API_KEY -ApiBase $config.ForwardEmailApiBase
+$cloudflareClient = New-CloudflareClient -ApiToken $env:CLOUDFLARE_API_TOKEN -ApiBase $config.CloudflareApiBase
 Write-Host "API clients initialized" -ForegroundColor Green
 
 # Initialize logger
-$logger = [Logger]::new($config.LogFile, $config.LogLevel)
+$logger = New-Logger -LogFile $config.LogFile -LogLevel $config.LogLevel
 $logger.Info("=" * 80, $null, $null)
 $logger.Info("Email Infrastructure Automation Starting", $null, $null)
 $logger.Info("=" * 80, $null, $null)
