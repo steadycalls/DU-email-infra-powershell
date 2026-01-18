@@ -1,0 +1,108 @@
+graph TB
+    subgraph Input["📥 Input Layer"]
+        DomainsFile["domains.txt<br/>Plain text domain list"]
+        EnvVars["Environment Variables<br/>API Keys & Config"]
+        ConfigFile["config.json<br/>Optional overrides"]
+    end
+
+    subgraph Core["🔧 Core Modules"]
+        Config["Config Module<br/>Configuration Management<br/>• Load from env/file<br/>• Validate credentials<br/>• Define retry params"]
+        
+        StateManager["State Manager<br/>Persistent State Tracking<br/>• JSON state file<br/>• Thread-safe operations<br/>• Domain state machine"]
+        
+        Logger["Logger Module<br/>Structured Logging<br/>• Console output (colored)<br/>• File output (JSON)<br/>• Multiple log levels"]
+        
+        ForwardEmail["Forward Email Client<br/>API Integration<br/>• Domain CRUD<br/>• Verification<br/>• Alias management<br/>• Retry logic"]
+        
+        Cloudflare["Cloudflare Client<br/>DNS Management<br/>• Zone lookup<br/>• DNS record CRUD<br/>• Idempotent operations<br/>• Retry logic"]
+    end
+
+    subgraph Orchestration["⚙️ Orchestration Layer"]
+        MainScript["Setup-EmailInfrastructure.ps1<br/>Main Processing Pipeline<br/>• Load domains<br/>• Concurrent processing<br/>• State coordination<br/>• Error handling"]
+    end
+
+    subgraph Processing["🔄 Domain Processing Pipeline"]
+        Step1["1. Add to Forward Email<br/>State: Pending → ForwardEmailAdded"]
+        Step2["2. Get Cloudflare Zone ID<br/>Lookup zone for domain"]
+        Step3["3. Configure DNS Records<br/>Create TXT + MX records<br/>State: → DnsConfigured"]
+        Step4["4. Verify Domain<br/>Poll until verified<br/>State: → Verifying → Verified"]
+        Step5["5. Create Aliases<br/>Create email aliases<br/>State: → AliasesCreated"]
+        Step6["6. Mark Completed<br/>State: → Completed"]
+        
+        Step1 --> Step2
+        Step2 --> Step3
+        Step3 --> Step4
+        Step4 --> Step5
+        Step5 --> Step6
+    end
+
+    subgraph External["🌐 External Services"]
+        FE_API["Forward Email API<br/>api.forwardemail.net"]
+        CF_API["Cloudflare API<br/>api.cloudflare.com"]
+    end
+
+    subgraph Output["📤 Output Layer"]
+        StateFile["state.json<br/>Domain progress tracking"]
+        LogFile["automation.log<br/>Structured logs"]
+        FailuresFile["failures.json<br/>Failed domain details"]
+        Console["Console Output<br/>Real-time status"]
+    end
+
+    %% Input connections
+    DomainsFile --> MainScript
+    EnvVars --> Config
+    ConfigFile --> Config
+    
+    %% Core module connections
+    Config --> MainScript
+    StateManager --> MainScript
+    Logger --> MainScript
+    ForwardEmail --> MainScript
+    Cloudflare --> MainScript
+    
+    %% Orchestration to processing
+    MainScript --> Step1
+    
+    %% Processing to API clients
+    Step1 -.->|API Call| ForwardEmail
+    ForwardEmail -.->|HTTP Request| FE_API
+    
+    Step2 -.->|API Call| Cloudflare
+    Step3 -.->|API Call| Cloudflare
+    Cloudflare -.->|HTTP Request| CF_API
+    
+    Step4 -.->|API Call| ForwardEmail
+    Step5 -.->|API Call| ForwardEmail
+    
+    %% State tracking
+    Step1 -.->|Update State| StateManager
+    Step3 -.->|Update State| StateManager
+    Step4 -.->|Update State| StateManager
+    Step5 -.->|Update State| StateManager
+    Step6 -.->|Update State| StateManager
+    
+    %% Logging
+    MainScript -.->|Write Logs| Logger
+    ForwardEmail -.->|Write Logs| Logger
+    Cloudflare -.->|Write Logs| Logger
+    
+    %% Output connections
+    StateManager --> StateFile
+    Logger --> LogFile
+    Logger --> Console
+    MainScript --> FailuresFile
+    
+    %% Styling
+    classDef inputStyle fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef coreStyle fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef orchestrationStyle fill:#f3e5f5,stroke:#4a148c,stroke-width:3px
+    classDef processingStyle fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef externalStyle fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    classDef outputStyle fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    
+    class DomainsFile,EnvVars,ConfigFile inputStyle
+    class Config,StateManager,Logger,ForwardEmail,Cloudflare coreStyle
+    class MainScript orchestrationStyle
+    class Step1,Step2,Step3,Step4,Step5,Step6 processingStyle
+    class FE_API,CF_API externalStyle
+    class StateFile,LogFile,FailuresFile,Console outputStyle

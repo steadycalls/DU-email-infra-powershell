@@ -1,0 +1,64 @@
+graph LR
+    subgraph "Configuration Layer"
+        Config["Config Module<br/><br/>📋 Responsibilities:<br/>• Load env variables<br/>• Parse JSON config<br/>• Validate credentials<br/>• Define retry params<br/>• Define aliases<br/><br/>🔑 Key Methods:<br/>• New-EmailInfraConfig()<br/>• LoadFromEnvironment()<br/>• LoadFromFile()<br/>• Validate()"]
+    end
+    
+    subgraph "State Management Layer"
+        State["State Manager<br/><br/>📋 Responsibilities:<br/>• Track domain states<br/>• Persist to JSON<br/>• Thread-safe access<br/>• Error tracking<br/>• Summary reporting<br/><br/>🔑 Key Methods:<br/>• AddDomain()<br/>• UpdateDomain()<br/>• GetDomain()<br/>• GetSummary()<br/>• ExportFailures()"]
+    end
+    
+    subgraph "Logging Layer"
+        Logger["Logger Module<br/><br/>📋 Responsibilities:<br/>• Console output<br/>• File logging<br/>• Structured JSON<br/>• Thread-safe writes<br/>• Log level filtering<br/><br/>🔑 Key Methods:<br/>• Debug()<br/>• Info()<br/>• Warning()<br/>• Error()<br/>• Critical()"]
+    end
+    
+    subgraph "API Client Layer"
+        FE["Forward Email Client<br/><br/>📋 Responsibilities:<br/>• Domain CRUD<br/>• Verification<br/>• Alias management<br/>• Retry logic<br/>• Rate limit handling<br/><br/>🔑 Key Methods:<br/>• CreateDomain()<br/>• GetDomain()<br/>• VerifyDomain()<br/>• CreateAlias()<br/>• ListAliases()"]
+        
+        CF["Cloudflare Client<br/><br/>📋 Responsibilities:<br/>• Zone lookup<br/>• DNS record CRUD<br/>• Idempotent ops<br/>• Retry logic<br/>• Rate limit handling<br/><br/>🔑 Key Methods:<br/>• GetZoneId()<br/>• CreateDnsRecord()<br/>• ListDnsRecords()<br/>• GetOrCreateDnsRecord()"]
+    end
+    
+    subgraph "Orchestration Layer"
+        Main["Main Script<br/><br/>📋 Responsibilities:<br/>• Load domains<br/>• Coordinate modules<br/>• Process pipeline<br/>• Concurrency control<br/>• Error handling<br/><br/>🔑 Functions:<br/>• Process-Domain()<br/>• Concurrency loop<br/>• Summary reporting"]
+    end
+    
+    %% Configuration dependencies
+    Config -->|Provides settings| Main
+    Config -->|Retry config| FE
+    Config -->|Retry config| CF
+    Config -->|Log level| Logger
+    Config -->|Alias definitions| Main
+    
+    %% State management dependencies
+    State -->|Domain records| Main
+    Main -->|Update states| State
+    FE -->|Log operations| Logger
+    CF -->|Log operations| Logger
+    State -->|Log operations| Logger
+    
+    %% API client usage
+    Main -->|Domain operations| FE
+    Main -->|DNS operations| CF
+    
+    %% Logging usage
+    Main -->|Log progress| Logger
+    
+    %% Data flow annotations
+    Config -.->|"1. Initialize"| Main
+    Main -.->|"2. Load state"| State
+    Main -.->|"3. Process domains"| FE
+    Main -.->|"4. Configure DNS"| CF
+    Main -.->|"5. Update state"| State
+    Main -.->|"6. Log events"| Logger
+    
+    %% Styling
+    classDef configStyle fill:#fff3e0,stroke:#e65100,stroke-width:3px
+    classDef stateStyle fill:#e1f5ff,stroke:#01579b,stroke-width:3px
+    classDef logStyle fill:#f3e5f5,stroke:#4a148c,stroke-width:3px
+    classDef apiStyle fill:#e8f5e9,stroke:#1b5e20,stroke-width:3px
+    classDef mainStyle fill:#fce4ec,stroke:#880e4f,stroke-width:4px
+    
+    class Config configStyle
+    class State stateStyle
+    class Logger logStyle
+    class FE,CF apiStyle
+    class Main mainStyle

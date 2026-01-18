@@ -1,0 +1,51 @@
+{
+  "ForwardEmailApiKey": "your_api_key_here",
+  "CloudflareApiToken": "your_api_token_here",
+  "CloudflareAccountId": "your_account_id_here",
+  "MaxRetries": 5,
+  "InitialRetryDelay": 5,
+  "MaxRetryDelay": 300,
+  "RateLimitDelay": 60,
+  "VerificationPollInterval": 30,
+  "VerificationMaxAttempts": 40,
+  "ConcurrentDomains": 5,
+  "LogLevel": "INFO",
+  "Aliases": [
+    {
+      "Name": "hello",
+      "Recipients": ["admin@yourdomain.com"],
+      "Description": "General inquiries",
+      "Labels": ["contact"]
+    },
+    {
+      "Name": "admin",
+      "Recipients": ["admin@yourdomain.com"],
+      "Description": "Administrative contact",
+      "Labels": ["admin"]
+    },
+    {
+      "Name": "support",
+      "Recipients": ["support@yourdomain.com"],
+      "Description": "Customer support",
+      "Labels": ["support"]
+    },
+    {
+      "Name": "noreply",
+      "Recipients": ["noreply@yourdomain.com"],
+      "Description": "No-reply address",
+      "Labels": ["system"]
+    },
+    {
+      "Name": "info",
+      "Recipients": ["info@yourdomain.com"],
+      "Description": "General information",
+      "Labels": ["contact"]
+    },
+    {
+      "Name": "sales",
+      "Recipients": ["sales@yourdomain.com"],
+      "Description": "Sales inquiries",
+      "Labels": ["sales"]
+    }
+  ]
+}

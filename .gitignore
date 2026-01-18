@@ -1,0 +1,33 @@
+# Environment and secrets
+.env
+
+# State and data files
+data/*.json
+data/*.txt
+!data/.gitkeep
+
+# Log files
+logs/*.log
+logs/*.txt
+!logs/.gitkeep
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# PowerShell specific
+*.ps1xml
+
+# OS specific
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE specific
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

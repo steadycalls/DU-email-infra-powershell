@@ -1,0 +1,134 @@
+sequenceDiagram
+    participant User
+    participant Script as Setup-EmailInfrastructure.ps1
+    participant Config as Config Module
+    participant State as State Manager
+    participant Logger as Logger
+    participant FE as Forward Email Client
+    participant CF as Cloudflare Client
+    participant FE_API as Forward Email API
+    participant CF_API as Cloudflare API
+    participant Files as File System
+
+    User->>Script: Execute with domains.txt
+    
+    Script->>Config: Load configuration
+    Config->>Files: Read .env / config.json
+    Files-->>Config: API keys & settings
+    Config-->>Script: Configuration object
+    
+    Script->>State: Initialize state manager
+    State->>Files: Load state.json (if exists)
+    Files-->>State: Previous state data
+    State-->>Script: State manager ready
+    
+    Script->>Logger: Initialize logger
+    Logger->>Files: Create/open log file
+    Logger-->>Script: Logger ready
+    
+    Script->>Files: Read domains.txt
+    Files-->>Script: List of domains
+    
+    loop For each domain (concurrent)
+        Script->>State: Get domain record
+        State-->>Script: Domain record (or create new)
+        
+        alt Domain state: Pending
+            Script->>FE: Create domain
+            FE->>FE_API: POST /domains
+            FE_API-->>FE: Domain created + verification record
+            FE-->>Script: Domain info
+            Script->>Logger: Log success
+            Logger->>Files: Write to log file
+            Script->>State: Update state to ForwardEmailAdded
+            State->>Files: Save state.json
+        end
+        
+        alt Domain state: ForwardEmailAdded
+            Script->>CF: Get zone ID for domain
+            CF->>CF_API: GET /zones?name=domain
+            CF_API-->>CF: Zone info
+            CF-->>Script: Zone ID
+            
+            Script->>CF: Create TXT verification record
+            CF->>CF_API: POST /zones/{id}/dns_records
+            CF_API-->>CF: DNS record created
+            CF-->>Script: Record info
+            
+            Script->>CF: Create MX records (mx1/mx2)
+            CF->>CF_API: POST /zones/{id}/dns_records (x2)
+            CF_API-->>CF: MX records created
+            CF-->>Script: Record info
+            
+            Script->>Logger: Log DNS configuration
+            Logger->>Files: Write to log file
+            Script->>State: Update state to DnsConfigured
+            State->>Files: Save state.json
+        end
+        
+        alt Domain state: DnsConfigured or Verifying
+            Script->>State: Update state to Verifying
+            State->>Files: Save state.json
+            
+            loop Verification polling (max 40 attempts)
+                Script->>FE: Verify domain
+                FE->>FE_API: GET /domains/{name}/verify-records
+                FE_API-->>FE: Verification status
+                FE-->>Script: Verified = true/false
+                
+                alt Not verified yet
+                    Script->>Logger: Log retry attempt
+                    Logger->>Files: Write to log file
+                    Script->>Script: Wait 30 seconds
+                else Verified
+                    Script->>Logger: Log verification success
+                    Logger->>Files: Write to log file
+                    Script->>State: Update state to Verified
+                    State->>Files: Save state.json
+                end
+            end
+        end
+        
+        alt Domain state: Verified
+            loop For each alias (hello, admin, support, noreply)
+                Script->>FE: Create alias
+                FE->>FE_API: POST /domains/{name}/aliases
+                FE_API-->>FE: Alias created
+                FE-->>Script: Alias info
+                Script->>Logger: Log alias creation
+                Logger->>Files: Write to log file
+            end
+            
+            Script->>State: Update state to AliasesCreated
+            State->>Files: Save state.json
+        end
+        
+        alt Domain state: AliasesCreated
+            Script->>State: Mark domain as Completed
+            State->>Files: Save state.json
+            Script->>Logger: Log completion
+            Logger->>Files: Write to log file
+        end
+        
+        alt Error occurs at any step
+            Script->>Logger: Log error with context
+            Logger->>Files: Write to log file
+            Script->>State: Mark domain as Failed + error details
+            State->>Files: Save state.json
+        end
+    end
+    
+    Script->>State: Get summary statistics
+    State-->>Script: Counts by state
+    Script->>Logger: Log summary
+    Logger->>Files: Write to log file
+    Logger->>User: Display summary (console)
+    
+    alt Failed domains exist
+        Script->>State: Export failures
+        State->>Files: Write failures.json
+        Script->>Logger: Log failures report
+        Logger->>User: Display failures warning
+    end
+    
+    Script-->>User: Execution complete

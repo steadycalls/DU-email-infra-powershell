@@ -1,0 +1,66 @@
+stateDiagram-v2
+    [*] --> Pending: Domain loaded from file
+    
+    Pending --> ForwardEmailAdded: Domain added to Forward Email
+    Pending --> Failed: API error / Auth failure
+    
+    ForwardEmailAdded --> DnsConfigured: DNS records created in Cloudflare
+    ForwardEmailAdded --> Failed: Zone not found / DNS error
+    
+    DnsConfigured --> Verifying: Start verification polling
+    DnsConfigured --> Failed: Verification API error
+    
+    Verifying --> Verified: DNS verification successful
+    Verifying --> Verifying: Not verified yet, retry
+    Verifying --> Failed: Verification timeout / Max attempts exceeded
+    
+    Verified --> AliasesCreated: All aliases created successfully
+    Verified --> AliasesCreated: Some aliases failed (non-fatal)
+    Verified --> Failed: Critical alias creation error
+    
+    AliasesCreated --> Completed: Domain fully provisioned
+    
+    Completed --> [*]: Success
+    Failed --> [*]: Manual intervention required
+    
+    note right of Pending
+        Initial state when domain
+        is loaded from input file
+    end note
+    
+    note right of ForwardEmailAdded
+        Domain exists in Forward Email
+        with verification record
+    end note
+    
+    note right of DnsConfigured
+        TXT verification record created
+        MX records created (mx1/mx2.forwardemail.net)
+    end note
+    
+    note right of Verifying
+        Polling loop with exponential backoff
+        Max attempts: 40 (default)
+        Poll interval: 30s (default)
+    end note
+    
+    note right of Verified
+        DNS propagation complete
+        Forward Email confirmed ownership
+    end note
+    
+    note right of AliasesCreated
+        Standard aliases created:
+        hello@, admin@, support@, noreply@
+    end note
+    
+    note right of Completed
+        Domain fully operational
+        All steps successful
+    end note
+    
+    note right of Failed
+        Unrecoverable error occurred
+        Details logged to failures.json
+        Can be manually retried
+    end note
