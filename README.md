@@ -1,10 +1,70 @@
 # Email Infrastructure Automation for PowerShell
 
-This project provides a robust PowerShell 7 script to automate the full lifecycle of email infrastructure setup across a large domain portfolio. It integrates with Forward Email and Cloudflare to turn a raw list of domains into fully functional, verified email-forwarding assets with standardized aliases.
+This project provides robust PowerShell 7 scripts to automate the full lifecycle of email infrastructure setup across a large domain portfolio. It integrates with Forward Email and Cloudflare to turn a raw list of domains into fully functional, verified email-forwarding assets with standardized aliases.
 
 This system is designed to be idempotent, state-aware, and resilient to transient failures, making it ideal for managing email infrastructure at scale.
 
-## Features
+## 🚀 Quick Start
+
+### Option 1: Full Automation (Three-Phase Script)
+```powershell
+.\Setup-EmailInfrastructure-ThreePhase.ps1 -DomainsFile "data\domains.txt"
+```
+
+### Option 2: Manual Verification Workflow (Recommended)
+```powershell
+# Step 1: Configure DNS and attempt verification
+.\Setup-EmailInfrastructure-ThreePhase.ps1
+
+# Step 2: Manually verify domains in Forward Email dashboard
+# https://forwardemail.net/my-account/domains
+
+# Step 3: Run standalone Phase 3 to create aliases
+.\Phase3-AliasGeneration.ps1
+```
+
+## 📦 Available Scripts
+
+### Main Automation Scripts
+
+1. **Setup-EmailInfrastructure-ThreePhase.ps1** - Improved three-phase automation
+   - Phase 1: DNS Configuration (adds domains, configures TXT + MX records)
+   - Phase 2: Domain Verification (improved verification logic)
+   - Phase 3: Alias Generation (creates 50 unique aliases per domain)
+   - Best for: Full automation with better verification
+
+2. **Phase3-AliasGeneration.ps1** - Standalone alias generation
+   - Runs independently after manual domain verification
+   - Processes all verified domains or specific domains
+   - Creates customizable number of aliases per domain (default: 50)
+   - Best for: Manual verification workflow, selective processing
+
+3. **Setup-EmailInfrastructure-TwoPhase.ps1** - Two-phase batch processing
+   - Phase 1: DNS Configuration (batch)
+   - Phase 2: Verification & Aliases (batch)
+   - Note: Use three-phase script for better verification
+
+4. **Setup-EmailInfrastructure.ps1** - Original sequential processing
+   - Processes domains one at a time
+   - Note: Slower than batch processing scripts
+
+### Key Improvements in Three-Phase Script
+
+- **Better Verification**: Uses GetDomain() instead of VerifyDomain() for status checks
+- **Longer Wait Times**: 180s DNS propagation wait (up from 120s)
+- **More Retries**: 5 verification attempts with 15s delays (up from 3 with 10s)
+- **Detailed Errors**: Shows exactly which DNS records are missing (MX, TXT)
+- **Standalone Phase 3**: Can run alias generation independently
+
+### Phase 3 Features
+
+- Creates info@ alias + 49 unique generated aliases per domain
+- 60/40 mix of firstName vs firstName.lastName format
+- Global uniqueness tracking across all domains
+- Exports all aliases to data/aliases.txt
+- Safe to re-run - skips domains that already have aliases
+
+## ✨ Features
 
 - **Bulk Domain Processing**: Reads a plain-text list of domains for batch processing.
 - **Forward Email Integration**: Automatically adds domains to your Forward Email account.
@@ -16,7 +76,15 @@ This system is designed to be idempotent, state-aware, and resilient to transien
 - **Error Handling & Reporting**: Isolates failures, logs detailed error reasons, and exports a list of failed domains for manual review.
 - **Concurrency Control**: Processes multiple domains concurrently to improve throughput.
 
-## Requirements
+### Additional Documentation
+
+- **QUICK-START-PHASE3.md** - Quick reference for standalone Phase 3
+- **PHASE3-STANDALONE-GUIDE.md** - Comprehensive Phase 3 usage guide
+- **IMPLEMENTATION-SUMMARY.md** - Technical overview and improvements
+- **PHASE3-IMPROVEMENTS.md** - Detailed improvements documentation
+- **PRE-FLIGHT-CHECKLIST.md** - Execution checklist and troubleshooting
+
+## 📋 Requirements
 
 - **PowerShell 7+**: The script is built on modern PowerShell features and requires version 7 or higher.
 - **Forward Email Account**: A Forward Email account with an API key.
@@ -78,10 +146,19 @@ Once configured, you can run the main script from your PowerShell 7 terminal.
 
 ### Basic Execution
 
-To run the automation with default settings:
-
+**Three-Phase Script (Recommended):**
 ```powershell
-.\Setup-EmailInfrastructure.ps1 -DomainsFile data/domains.txt
+.\Setup-EmailInfrastructure-ThreePhase.ps1 -DomainsFile data\domains.txt
+```
+
+**Standalone Phase 3 (After Manual Verification):**
+```powershell
+.\Phase3-AliasGeneration.ps1
+```
+
+**Original Sequential Script:**
+```powershell
+.\Setup-EmailInfrastructure.ps1 -DomainsFile data\domains.txt
 ```
 
 ### Running the Setup Test
