@@ -292,7 +292,8 @@ for ($i = 0; $i -lt $totalDomains; $i++) {
             }
             
             $txtValue = "`"forward-email-site-verification=$verificationString`""
-            $txtRecord = $cloudflareClient.CreateDnsRecord($zoneId, $domain, "TXT", $txtValue, 3600, $null, $false)
+            # CreateDnsRecord parameters: zoneId, recordType, recordName, content, ttl, comment, priority, proxied
+            $txtRecord = $cloudflareClient.CreateDnsRecord($zoneId, "TXT", $domain, $txtValue, 3600, $null, $null, $false)
             $logger.Info("Added NEW verification TXT record from API", $domain, @{RecordId = $txtRecord.id; VerificationString = $verificationString; EnhancedProtection = $result.EnhancedProtectionEnabled})
             Write-Host "        ✓ Added NEW verification TXT record (DNS only): forward-email-site-verification=$verificationString" -ForegroundColor Green
             
