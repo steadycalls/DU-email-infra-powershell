@@ -463,13 +463,7 @@ foreach ($domain in $domains) {
                     $description = $aliasConfig.Description
                     $labels = $aliasConfig.Labels
                     
-                    # Check if alias already exists
-                    if ($forwardEmailClient.AliasExists($domain, $aliasName)) {
-                        $logger.Info("Alias already exists: $aliasName", $domain, $null)
-                        Write-Host "        ✓ Alias already exists: $aliasName@$domain" -ForegroundColor Yellow
-                        $aliasesCreated++
-                        continue
-                    }
+                    # Try to create alias (Forward Email API will return existing alias if it already exists)
                     
                     $alias = $forwardEmailClient.CreateAlias($domain, $aliasName, $recipients, $description, $labels)
                     $logger.Info("Created alias: $aliasName", $domain, @{AliasId = $alias.id})
@@ -585,7 +579,7 @@ if ($totalFailed -gt 0) {
                 State = $record.State
                 Attempts = $record.Attempts
                 Errors = $record.Errors
-                LastUpdated = $record.LastUpdated
+                LastAttempt = if ($record.LastAttempt) { $record.LastAttempt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ") } else { $null }
             }
         }
     }
