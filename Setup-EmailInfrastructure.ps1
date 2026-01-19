@@ -267,7 +267,7 @@ if ($DryRun) {
                     Write-Host "        ✓ Found Cloudflare zone: $zoneId" -ForegroundColor Green
                     
                     # Add TXT verification record
-                    $txtValue = "forward-email-site-verification=$($record.ForwardEmailDomainId)"
+                    $txtValue = "`"forward-email-site-verification=$($record.ForwardEmailDomainId)`""
                     $txtRecord = $cloudflareClient.CreateOrUpdateDnsRecord($zoneId, $domain, "TXT", $txtValue, 3600)
                     $logger.Info("Added TXT verification record", $domain, @{RecordId = $txtRecord.id})
                     Write-Host "        ✓ Added TXT verification record" -ForegroundColor Green
