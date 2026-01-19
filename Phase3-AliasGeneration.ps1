@@ -126,7 +126,13 @@ catch {
 
 # Initialize Forward Email client
 try {
-    $forwardEmailClient = New-ForwardEmailClient -ApiKey $env:FORWARD_EMAIL_API_KEY
+    $retryConfig = @{
+        MaxRetries = 5
+        InitialRetryDelay = 5
+        MaxRetryDelay = 300
+        RateLimitDelay = 60
+    }
+    $forwardEmailClient = New-ForwardEmailClient -ApiKey $env:FORWARD_EMAIL_API_KEY -RetryConfig $retryConfig
     Write-Host "[PASS] Forward Email client initialized" -ForegroundColor Green
 }
 catch {
