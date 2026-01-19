@@ -260,16 +260,22 @@ for ($i = 0; $i -lt $totalDomains; $i++) {
             $logger.Info("Found Cloudflare zone", $domain, @{ZoneId = $zoneId})
             Write-Host "        ✓ Found Cloudflare zone (ID: $zoneId)" -ForegroundColor Green
             
-            # Remove ALL old forward-email TXT records to avoid multiple verification records error
+            # Step 1: Delete ALL existing forward-email TXT records (both old verification and catch-all)
+            # This ensures we only have the LATEST verification record from Forward Email API
+            $deletedCount = 0
             try {
                 $existingRecords = $cloudflareClient.ListDnsRecords($zoneId, "TXT", $domain)
                 foreach ($existingRecord in $existingRecords.result) {
-                    # Remove any TXT record starting with "forward-email" (both verification and catch-all)
-                    if ($existingRecord.content -match '^"?forward-email') {
+                    # Remove ANY TXT record containing "forward-email" (verification or catch-all)
+                    if ($existingRecord.content -match 'forward-email') {
                         $cloudflareClient.DeleteDnsRecord($zoneId, $existingRecord.id)
-                        $logger.Info("Removed old forward-email TXT record", $domain, @{RecordId = $existingRecord.id; Content = $existingRecord.content})
-                        Write-Host "        ✓ Removed old TXT record: $($existingRecord.content.Substring(0, [Math]::Min(50, $existingRecord.content.Length)))..." -ForegroundColor Yellow
+                        $deletedCount++
+                        $logger.Info("Deleted old forward-email TXT record", $domain, @{RecordId = $existingRecord.id; Content = $existingRecord.content})
+                        Write-Host "        ✓ Deleted old TXT record: $($existingRecord.content.Substring(0, [Math]::Min(60, $existingRecord.content.Length)))" -ForegroundColor Yellow
                     }
+                }
+                if ($deletedCount -gt 0) {
+                    Write-Host "        → Deleted $deletedCount old forward-email TXT record(s)" -ForegroundColor Cyan
                 }
             }
             catch {
@@ -277,14 +283,18 @@ for ($i = 0; $i -lt $totalDomains; $i++) {
                 $logger.Warning("Could not clean up old records: $($_.Exception.Message)", $domain, $null)
             }
             
-            # Add ONLY the TXT verification record (with Enhanced Protection string)
-            # Do NOT add catch-all TXT record - that causes multiple verification records error
-            # Catch-all forwarding will be handled via aliases in Forward Email
+            # Step 2: Add ONLY the LATEST verification TXT record from Forward Email API
+            # This is the most recent verification string returned by Forward Email
+            # Do NOT add catch-all TXT record - causes multiple verification records error
             $verificationString = $result.VerificationRecord
+            if (-not $verificationString) {
+                throw "No verification string available from Forward Email API"
+            }
+            
             $txtValue = "`"forward-email-site-verification=$verificationString`""
-            $txtRecord = $cloudflareClient.CreateOrUpdateDnsRecord($zoneId, $domain, "TXT", $txtValue, 3600, $null, $false)
-            $logger.Info("Added TXT verification record", $domain, @{RecordId = $txtRecord.id; VerificationString = $verificationString; EnhancedProtection = $result.EnhancedProtectionEnabled})
-            Write-Host "        ✓ Added TXT verification record (DNS only): forward-email-site-verification=$verificationString" -ForegroundColor Green
+            $txtRecord = $cloudflareClient.CreateDnsRecord($zoneId, $domain, "TXT", $txtValue, 3600, $null, $false)
+            $logger.Info("Added NEW verification TXT record from API", $domain, @{RecordId = $txtRecord.id; VerificationString = $verificationString; EnhancedProtection = $result.EnhancedProtectionEnabled})
+            Write-Host "        ✓ Added NEW verification TXT record (DNS only): forward-email-site-verification=$verificationString" -ForegroundColor Green
             
             # Add MX records (both priority 10, DNS only)
             $mx1 = $cloudflareClient.CreateOrUpdateDnsRecord($zoneId, $domain, "MX", "mx1.forwardemail.net", 3600, 10, $false)
