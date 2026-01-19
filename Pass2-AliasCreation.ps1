@@ -284,6 +284,9 @@ function Create-AliasesForDomain {
                 $Logger.Warning("Failed to set password for info@ alias: $($_.Exception.Message)", $Domain, $null)
             }
         }
+        
+        # Rate limiting: 1 alias per second
+        Start-Sleep -Seconds 1
     }
     catch {
         if ($_.Exception.Message -match "already exists") {
@@ -321,6 +324,9 @@ function Create-AliasesForDomain {
                     # Silently continue if password setting fails
                 }
             }
+            
+            # Rate limiting: 1 alias per second
+            Start-Sleep -Seconds 1
             
             # Progress update every 10 aliases
             if (($created % $batchSize) -eq 0) {

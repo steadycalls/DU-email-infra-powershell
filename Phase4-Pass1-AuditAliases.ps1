@@ -343,6 +343,9 @@ for ($i = 0; $i -lt $totalDomains; $i++) {
                     Error = $result.Error
                 }
             }
+            
+            # Rate limiting: 1 alias per second
+            Start-Sleep -Seconds 1
         }
         
         if (-not $DryRun) {
