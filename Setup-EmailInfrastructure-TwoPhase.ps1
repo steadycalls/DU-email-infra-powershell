@@ -146,7 +146,7 @@ try {
     }
     
     $forwardEmailClient = New-ForwardEmailClient -BaseUrl $config.ForwardEmailApiBase -ApiKey $config.ForwardEmailApiKey -RetryConfig $retryConfig
-    $cloudflareClient = New-CloudflareClient -BaseUrl $config.CloudflareApiBase -ApiToken $config.CloudflareApiToken -AccountId $config.CloudflareAccountId -RetryConfig $retryConfig
+    $cloudflareClient = New-CloudflareClient -BaseUrl $config.CloudflareApiBase -ApiToken $config.CloudflareApiToken -RetryConfig $retryConfig
     $logger = New-Logger -LogFile $LogFile -MinLevel $LogLevel
     
     Write-Host "API clients initialized" -ForegroundColor Green
