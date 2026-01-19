@@ -306,6 +306,12 @@ foreach ($domain in $domains) {
                 $logger.Info("Added TXT verification record", $domain, @{RecordId = $txtRecord.id})
                 Write-Host "        ✓ Added TXT verification record (quoted)" -ForegroundColor Green
                 
+                # Add catch-all forwarding TXT record
+                $catchAllValue = "`"forward-email=gmb@decisionsunlimited.io`""
+                $catchAllRecord = $cloudflareClient.CreateOrUpdateDnsRecord($zoneId, $domain, "TXT", $catchAllValue, 3600)
+                $logger.Info("Added catch-all forwarding record", $domain, @{RecordId = $catchAllRecord.id})
+                Write-Host "        ✓ Added catch-all forwarding (gmb@decisionsunlimited.io)" -ForegroundColor Green
+                
                 # Add MX records
                 $mx1 = $cloudflareClient.CreateOrUpdateDnsRecord($zoneId, $domain, "MX", "mx1.forwardemail.net", 3600, 10)
                 $mx2 = $cloudflareClient.CreateOrUpdateDnsRecord($zoneId, $domain, "MX", "mx2.forwardemail.net", 3600, 20)
