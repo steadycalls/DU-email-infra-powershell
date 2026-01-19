@@ -95,9 +95,8 @@ $ErrorActionPreference = "Stop"
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # Import modules
-$modulesPath = Join-Path $scriptRoot "modules"
-Import-Module (Join-Path $modulesPath "ForwardEmailClient.psm1") -Force
-Import-Module (Join-Path $modulesPath "Logger.psm1") -Force
+Import-Module (Join-Path $scriptRoot "ForwardEmailClient.psm1") -Force
+Import-Module (Join-Path $scriptRoot "Logger.psm1") -Force
 
 Write-Host "=" * 80 -ForegroundColor Cyan
 Write-Host "Pass 2: Alias Creation with Retry Logic" -ForegroundColor Cyan
@@ -265,7 +264,7 @@ function Create-AliasesForDomain {
     # Create info@ alias first
     Write-Host "  [1/50] Creating info@ alias..." -ForegroundColor Yellow
     try {
-        $infoAlias = $Client.CreateAlias($Domain, "info", @("gmb@decisionsunlimited.io"))
+        $infoAlias = $Client.CreateAlias($Domain, "info", @("gmb@decisionsunlimited.io"), $null, $null)
         $createdAliases += "info@$Domain"
         $Logger.Info("Created info@ alias", $Domain, $null)
         Write-Host "        ✓ Created info@$Domain" -ForegroundColor Green
@@ -293,7 +292,7 @@ function Create-AliasesForDomain {
         $aliasName = $aliases[$i]
         
         try {
-            $alias = $Client.CreateAlias($Domain, $aliasName, @("gmb@decisionsunlimited.io"))
+            $alias = $Client.CreateAlias($Domain, $aliasName, @("gmb@decisionsunlimited.io"), $null, $null)
             $createdAliases += "$aliasName@$Domain"
             $created++
             
