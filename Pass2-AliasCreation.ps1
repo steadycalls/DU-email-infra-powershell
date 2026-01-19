@@ -84,6 +84,9 @@ param(
     [int]$InitialRetryDelay = 10,
     
     [Parameter(Mandatory=$false)]
+    [string]$AliasPassword = "474d6dc122cde69b6cd8b3a1",
+    
+    [Parameter(Mandatory=$false)]
     [switch]$DryRun
 )
 
@@ -256,7 +259,8 @@ function Create-AliasesForDomain {
         [int]$FirstNamePercent,
         [hashtable]$UsedNames,
         [object]$Client,
-        [object]$Logger
+        [object]$Logger,
+        [string]$Password
     )
     
     $createdAliases = @()
@@ -269,6 +273,17 @@ function Create-AliasesForDomain {
         $createdAliases += "info@$Domain"
         $Logger.Info("Created info@ alias", $Domain, $null)
         Write-Host "        ✓ Created info@$Domain" -ForegroundColor Green
+        
+        # Set password for the alias
+        if ($Password) {
+            try {
+                $Client.GenerateAliasPassword($Domain, $infoAlias.id, $Password, $true) | Out-Null
+                $Logger.Info("Set password for info@ alias", $Domain, $null)
+            }
+            catch {
+                $Logger.Warning("Failed to set password for info@ alias: $($_.Exception.Message)", $Domain, $null)
+            }
+        }
     }
     catch {
         if ($_.Exception.Message -match "already exists") {
@@ -296,6 +311,16 @@ function Create-AliasesForDomain {
             $alias = $Client.CreateAlias($Domain, $aliasName, @("gmb@decisionsunlimited.io"), $null, $null)
             $createdAliases += "$aliasName@$Domain"
             $created++
+            
+            # Set password for the alias
+            if ($Password) {
+                try {
+                    $Client.GenerateAliasPassword($Domain, $alias.id, $Password, $true) | Out-Null
+                }
+                catch {
+                    # Silently continue if password setting fails
+                }
+            }
             
             # Progress update every 10 aliases
             if (($created % $batchSize) -eq 0) {
@@ -376,7 +401,8 @@ for ($i = 0; $i -lt $totalDomains; $i++) {
                 -FirstNamePercent $FirstNamePercent `
                 -UsedNames $usedNames `
                 -Client $forwardEmailClient `
-                -Logger $logger
+                -Logger $logger `
+                -Password $AliasPassword
             
             $allAliases += $domainAliases
             $result.AliasCount = $domainAliases.Count
