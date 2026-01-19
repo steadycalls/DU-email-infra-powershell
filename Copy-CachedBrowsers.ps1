@@ -1,14 +1,27 @@
 # PowerShell Script to Copy "Cached Browsers" and Distribute "Cached Transfer" Folders
 # This script:
-# 1. Copies C:\Users\kyle\Desktop\Cached Browsers to all subfolders in E:\Alliance Decks
+# 1. Copies Cached Browsers from the first folder in E:\Alliance Decks to all other subfolders
 # 2. Extracts the "Cached Transfer" folder from inside "Cached Browsers"
 # 3. Randomly distributes 5 folders from "Cached Transfer" to each city folder (folders with state abbreviations)
 # 4. Logs the distribution to a CSV file for auditing
 
-# Define source and destination paths
-$sourcePath = "C:\Users\kyle\Desktop\Cached Browsers"
+# Define destination root
 $destinationRoot = "E:\Alliance Decks"
 $cachedTransferFolder = "Cached Transfer"
+
+# Get the first subfolder in Alliance Decks (alphabetically)
+$firstFolder = Get-ChildItem -Path $destinationRoot -Directory | Sort-Object Name | Select-Object -First 1
+
+if (-not $firstFolder) {
+    Write-Host "ERROR: No subfolders found in $destinationRoot" -ForegroundColor Red
+    exit 1
+}
+
+# Set source path to Cached Browsers in the first folder
+$sourcePath = Join-Path -Path $firstFolder.FullName -ChildPath "Cached Browsers"
+
+Write-Host "Using source folder: $($firstFolder.Name)\Cached Browsers" -ForegroundColor Cyan
+Write-Host ""
 
 # Create log file with timestamp
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -36,12 +49,12 @@ if (-not (Test-Path -Path $destinationRoot)) {
     exit 1
 }
 
-# Get all subfolders in the destination root
-$allSubfolders = Get-ChildItem -Path $destinationRoot -Directory
+# Get all subfolders in the destination root (excluding the first folder which is the source)
+$allSubfolders = Get-ChildItem -Path $destinationRoot -Directory | Sort-Object Name | Select-Object -Skip 1
 
-# Check if there are any subfolders
+# Check if there are any subfolders to copy to
 if ($allSubfolders.Count -eq 0) {
-    Write-Host "WARNING: No subfolders found in $destinationRoot" -ForegroundColor Yellow
+    Write-Host "WARNING: No other subfolders found in $destinationRoot to copy to" -ForegroundColor Yellow
     exit 0
 }
 
