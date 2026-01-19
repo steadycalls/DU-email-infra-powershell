@@ -260,14 +260,15 @@ for ($i = 0; $i -lt $totalDomains; $i++) {
             $logger.Info("Found Cloudflare zone", $domain, @{ZoneId = $zoneId})
             Write-Host "        ✓ Found Cloudflare zone (ID: $zoneId)" -ForegroundColor Green
             
-            # Remove old unquoted TXT records (if they exist)
+            # Remove ALL old forward-email TXT records to avoid multiple verification records error
             try {
                 $existingRecords = $cloudflareClient.ListDnsRecords($zoneId, "TXT", $domain)
                 foreach ($existingRecord in $existingRecords.result) {
-                    if ($existingRecord.content -match "forward-email-site-verification=" -and $existingRecord.content -notmatch '^".*"$') {
+                    # Remove any TXT record starting with "forward-email" (both verification and catch-all)
+                    if ($existingRecord.content -match '^"?forward-email') {
                         $cloudflareClient.DeleteDnsRecord($zoneId, $existingRecord.id)
-                        $logger.Info("Removed old unquoted TXT record", $domain, @{RecordId = $existingRecord.id})
-                        Write-Host "        ✓ Removed old unquoted TXT record" -ForegroundColor Yellow
+                        $logger.Info("Removed old forward-email TXT record", $domain, @{RecordId = $existingRecord.id; Content = $existingRecord.content})
+                        Write-Host "        ✓ Removed old TXT record: $($existingRecord.content.Substring(0, [Math]::Min(50, $existingRecord.content.Length)))..." -ForegroundColor Yellow
                     }
                 }
             }
@@ -276,18 +277,14 @@ for ($i = 0; $i -lt $totalDomains; $i++) {
                 $logger.Warning("Could not clean up old records: $($_.Exception.Message)", $domain, $null)
             }
             
-            # Add TXT verification record (with Enhanced Protection string)
+            # Add ONLY the TXT verification record (with Enhanced Protection string)
+            # Do NOT add catch-all TXT record - that causes multiple verification records error
+            # Catch-all forwarding will be handled via aliases in Forward Email
             $verificationString = $result.VerificationRecord
             $txtValue = "`"forward-email-site-verification=$verificationString`""
             $txtRecord = $cloudflareClient.CreateOrUpdateDnsRecord($zoneId, $domain, "TXT", $txtValue, 3600, $null, $false)
-            $logger.Info("Added TXT verification record", $domain, @{RecordId = $txtRecord.id; EnhancedProtection = $result.EnhancedProtectionEnabled})
-            Write-Host "        ✓ Added TXT verification record (DNS only, quoted)" -ForegroundColor Green
-            
-            # Add catch-all forwarding TXT record
-            $catchAllValue = "`"forward-email=gmb@decisionsunlimited.io`""
-            $catchAllRecord = $cloudflareClient.CreateOrUpdateDnsRecord($zoneId, $domain, "TXT", $catchAllValue, 3600, $null, $false)
-            $logger.Info("Added catch-all forwarding record", $domain, @{RecordId = $catchAllRecord.id})
-            Write-Host "        ✓ Added catch-all forwarding (DNS only, gmb@decisionsunlimited.io)" -ForegroundColor Green
+            $logger.Info("Added TXT verification record", $domain, @{RecordId = $txtRecord.id; VerificationString = $verificationString; EnhancedProtection = $result.EnhancedProtectionEnabled})
+            Write-Host "        ✓ Added TXT verification record (DNS only): forward-email-site-verification=$verificationString" -ForegroundColor Green
             
             # Add MX records (both priority 10, DNS only)
             $mx1 = $cloudflareClient.CreateOrUpdateDnsRecord($zoneId, $domain, "MX", "mx1.forwardemail.net", 3600, 10, $false)
