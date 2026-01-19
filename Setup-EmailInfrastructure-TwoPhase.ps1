@@ -211,7 +211,7 @@ foreach ($domain in $domains) {
     # Load or create domain record
     $record = $stateManager.GetDomain($domain)
     if ($null -eq $record) {
-        $record = $stateManager.CreateDomain($domain)
+        $record = $stateManager.AddDomain($domain)
         Write-Host "  ✓ Domain record created" -ForegroundColor Green
     } else {
         Write-Host "  ✓ Domain record loaded (State: $($record.State))" -ForegroundColor Green
