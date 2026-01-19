@@ -65,10 +65,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$false)]
-    [string]$DomainsFile = "",
-    
-    [Parameter(Mandatory=$false)]
-    [string]$StateFile = "data/state.json",
+    [string]$DomainsFile = "data/domains.txt",
     
     [Parameter(Mandatory=$false)]
     [string]$LogFile = "logs/alias-generation.log",
@@ -93,12 +90,6 @@ $ErrorActionPreference = "Stop"
 $modulePath = Join-Path $PSScriptRoot "modules"
 
 try {
-    Import-Module (Join-Path $modulePath "Config.psm1") -Force
-    Write-Host "[PASS] Config module loaded" -ForegroundColor Green
-    
-    Import-Module (Join-Path $modulePath "StateManager.psm1") -Force
-    Write-Host "[PASS] StateManager module loaded" -ForegroundColor Green
-    
     Import-Module (Join-Path $modulePath "ForwardEmailClient.psm1") -Force
     Write-Host "[PASS] ForwardEmailClient module loaded" -ForegroundColor Green
     
@@ -116,25 +107,12 @@ Write-Host "Phase 3: Alias Generation for Verified Domains" -ForegroundColor Cya
 Write-Host "=" * 80 -ForegroundColor Cyan
 Write-Host ""
 
-# Initialize configuration
-try {
-    $config = New-EmailInfraConfig -ConfigFile "config.json"
-    Write-Host "[PASS] Configuration loaded" -ForegroundColor Green
-}
-catch {
-    Write-Host "[FAIL] Failed to load configuration: $($_.Exception.Message)" -ForegroundColor Red
+# Check for API key
+if (-not $env:FORWARD_EMAIL_API_KEY) {
+    Write-Host "[FAIL] FORWARD_EMAIL_API_KEY environment variable not set" -ForegroundColor Red
     exit 1
 }
-
-# Initialize state manager
-try {
-    $stateManager = New-StateManager -StateFile $StateFile
-    Write-Host "[PASS] State manager initialized" -ForegroundColor Green
-}
-catch {
-    Write-Host "[FAIL] Failed to initialize state manager: $($_.Exception.Message)" -ForegroundColor Red
-    exit 1
-}
+Write-Host "[PASS] API key found" -ForegroundColor Green
 
 # Initialize logger
 try {
@@ -148,7 +126,7 @@ catch {
 
 # Initialize Forward Email client
 try {
-    $forwardEmailClient = New-ForwardEmailClient -Config $config
+    $forwardEmailClient = New-ForwardEmailClient -ApiKey $env:FORWARD_EMAIL_API_KEY
     Write-Host "[PASS] Forward Email client initialized" -ForegroundColor Green
 }
 catch {
@@ -158,44 +136,20 @@ catch {
 
 Write-Host ""
 
-# Determine which domains to process
-$domainsToProcess = @()
+# Load domains from file
+if (-not (Test-Path $DomainsFile)) {
+    Write-Host "[FAIL] Domains file not found: $DomainsFile" -ForegroundColor Red
+    Write-Host "Please create $DomainsFile with one domain per line" -ForegroundColor Yellow
+    exit 1
+}
 
-if ($DomainsFile -and (Test-Path $DomainsFile)) {
-    # Load domains from file
-    $domainsToProcess = Get-Content $DomainsFile | Where-Object { $_ -match '\S' } | ForEach-Object { $_.Trim() }
-    Write-Host "Loaded $($domainsToProcess.Count) domains from $DomainsFile" -ForegroundColor Green
-}
-else {
-    # Load all verified domains from state.json
-    $state = $stateManager.GetState()
-    $allDomains = $state.Domains.PSObject.Properties
-    
-    foreach ($domainProp in $allDomains) {
-        $domain = $domainProp.Name
-        $record = $domainProp.Value
-        
-        # Include domains that are Verified but not yet AliasesCreated
-        if ($record.State -eq "Verified") {
-            $domainsToProcess += $domain
-        }
-        # Also show domains that already have aliases
-        elseif ($record.State -in @("AliasesCreated", "Completed")) {
-            Write-Host "  ℹ $domain already has aliases (State: $($record.State))" -ForegroundColor Gray
-        }
-    }
-    
-    Write-Host "Found $($domainsToProcess.Count) verified domains ready for alias generation" -ForegroundColor Green
-}
+$domainsToProcess = Get-Content $DomainsFile | Where-Object { $_ -match '\S' -and $_ -notmatch '^#' } | ForEach-Object { $_.Trim() }
+Write-Host "Loaded $($domainsToProcess.Count) domains from $DomainsFile" -ForegroundColor Green
 
 if ($domainsToProcess.Count -eq 0) {
     Write-Host ""
     Write-Host "No domains to process!" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "Options:" -ForegroundColor Cyan
-    Write-Host "  1. Verify domains in Forward Email dashboard first" -ForegroundColor Gray
-    Write-Host "  2. Update state.json to mark domains as 'Verified'" -ForegroundColor Gray
-    Write-Host "  3. Provide a domains file with -DomainsFile parameter" -ForegroundColor Gray
+    Write-Host "Please add domains to $DomainsFile (one per line)" -ForegroundColor Gray
     Write-Host ""
     exit 0
 }
@@ -311,30 +265,7 @@ foreach ($domain in $domainsToProcess) {
     Write-Host "=" * 80 -ForegroundColor DarkGray
     $logger.Info("[$domain] Creating aliases $domainIndex/$totalDomains", $domain, $null)
     
-    # Load domain record
-    $record = $stateManager.GetDomain($domain)
-    if ($null -eq $record) {
-        Write-Host "  ⚠ Domain not found in state.json - creating new record" -ForegroundColor Yellow
-        $record = $stateManager.CreateDomain($domain)
-        $record.State = "Verified"  # Assume verified since we're processing it
-        $stateManager.UpdateDomain($domain, $record)
-    }
-    
-    # Check if domain already has aliases
-    if ($record.State -in @("AliasesCreated", "Completed")) {
-        Write-Host "  ℹ Domain already has aliases - skipping" -ForegroundColor Gray
-        $logger.Info("Domain already has aliases, skipping", $domain, $null)
-        
-        # Add existing aliases to export list
-        if ($record.Aliases.Count -gt 0) {
-            foreach ($alias in $record.Aliases) {
-                $allAliases += "$alias@$domain"
-            }
-        }
-        $successCount++
-        Write-Host ""
-        continue
-    }
+    # Process domain (no state checking - will skip if aliases already exist in Forward Email)
     
     try {
         Write-Host "  Creating email aliases..." -ForegroundColor Yellow
@@ -406,10 +337,7 @@ foreach ($domain in $domainsToProcess) {
         Write-Host "      ✓ Created $aliasesCreated additional aliases" -ForegroundColor Green
         Write-Host "      ✓ Total: $($domainAliases.Count) aliases for $domain" -ForegroundColor Green
         
-        # Update state
-        $record.Aliases = $domainAliases
-        $record.State = "AliasesCreated"
-        $stateManager.UpdateDomain($domain, $record)
+        # Track success
         $successCount++
         
         Write-Host "  ✓ Alias generation complete for $domain" -ForegroundColor Green
@@ -418,9 +346,6 @@ foreach ($domain in $domainsToProcess) {
         $errorMessage = $_.Exception.Message
         $logger.Error("Failed to create aliases: $errorMessage", $domain, $null)
         Write-Host "  ✗ ERROR: $errorMessage" -ForegroundColor Red
-        $record.AddError("alias_generation", $errorMessage, "ALIAS_ERROR", @{})
-        $record.MarkFailed()
-        $stateManager.UpdateDomain($domain, $record)
         $failedCount++
     }
     
@@ -458,7 +383,6 @@ Write-Host "  - Total Aliases: $($allAliases.Count)" -ForegroundColor Cyan
 Write-Host "  - Avg per Domain: $([Math]::Round($allAliases.Count / $successCount, 1))" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Files:" -ForegroundColor Yellow
-Write-Host "  - State: $StateFile" -ForegroundColor Gray
 Write-Host "  - Aliases: $aliasesFile" -ForegroundColor Gray
 Write-Host "  - Logs: $LogFile" -ForegroundColor Gray
 Write-Host ""
