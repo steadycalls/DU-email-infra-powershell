@@ -97,12 +97,20 @@ class ForwardEmailClient {
     }
     
     [object] CreateDomain([string]$domainName) {
+        return $this.CreateDomain($domainName, $null)
+    }
+    
+    [object] CreateDomain([string]$domainName, [string]$plan) {
         <#
         .SYNOPSIS
         Creates a domain in Forward Email.
         
         .PARAMETER domainName
         The domain name to add.
+        
+        .PARAMETER plan
+        Optional plan type (e.g., "enhanced_protection", "free", "team").
+        If not specified, uses account default.
         
         .RETURNS
         Domain object with ID and verification records.
@@ -111,6 +119,10 @@ class ForwardEmailClient {
         $uri = "$($this.BaseUrl)/domains"
         $body = @{
             name = $domainName
+        }
+        
+        if ($plan) {
+            $body.plan = $plan
         }
         
         return $this.InvokeWithRetry("POST", $uri, $body)

@@ -200,7 +200,7 @@ for ($i = 0; $i -lt $totalDomains; $i++) {
     }
     
     try {
-        # Step 1: Get existing domain from Forward Email
+        # Step 1: Get or create domain in Forward Email with Enhanced Protection
         Write-Host "  [1/3] Getting domain from Forward Email..." -ForegroundColor Yellow
         try {
             $forwardEmailDomain = $forwardEmailClient.GetDomain($domain)
@@ -209,30 +209,47 @@ for ($i = 0; $i -lt $totalDomains; $i++) {
             Write-Host "        ✓ Domain found (ID: $($forwardEmailDomain.id))" -ForegroundColor Green
         }
         catch {
-            $errorMessage = $_.Exception.Message
-            $logger.Error("Domain not found in Forward Email: $errorMessage", $domain, $null)
-            Write-Host "        ✗ ERROR: Domain not found in Forward Email" -ForegroundColor Red
-            Write-Host "        → Please add domain manually at https://forwardemail.net/my-account/domains" -ForegroundColor Yellow
-            throw "Domain not found: $domain"
+            # Domain doesn't exist, create it with Enhanced Protection
+            Write-Host "        → Domain not found, creating with Enhanced Protection..." -ForegroundColor Cyan
+            try {
+                $forwardEmailDomain = $forwardEmailClient.CreateDomain($domain, "enhanced_protection")
+                $result.ForwardEmailDomainId = $forwardEmailDomain.id
+                $result.EnhancedProtectionEnabled = $true
+                $result.VerificationRecord = $forwardEmailDomain.verification_record
+                $logger.Info("Domain created with Enhanced Protection", $domain, @{DomainId = $forwardEmailDomain.id; VerificationRecord = $forwardEmailDomain.verification_record})
+                Write-Host "        ✓ Domain created with Enhanced Protection (ID: $($forwardEmailDomain.id))" -ForegroundColor Green
+                Write-Host "        → Verification string: $($forwardEmailDomain.verification_record)" -ForegroundColor Cyan
+            }
+            catch {
+                $errorMessage = $_.Exception.Message
+                $logger.Error("Failed to create domain: $errorMessage", $domain, $null)
+                Write-Host "        ✗ ERROR: Failed to create domain: $errorMessage" -ForegroundColor Red
+                throw "Failed to create domain: $domain"
+            }
         }
         
-        # Step 2: Enable Enhanced Protection
-        Write-Host "  [2/3] Enabling Enhanced Protection..." -ForegroundColor Yellow
-        try {
-            $enhancedDomain = $forwardEmailClient.EnableEnhancedProtection($domain)
-            $result.EnhancedProtectionEnabled = $true
-            $result.VerificationRecord = $enhancedDomain.verification_record
-            $logger.Info("Enhanced Protection enabled", $domain, @{VerificationRecord = $enhancedDomain.verification_record})
-            Write-Host "        ✓ Enhanced Protection enabled" -ForegroundColor Green
-            Write-Host "        → Verification string: $($enhancedDomain.verification_record)" -ForegroundColor Cyan
+        # Step 2: Enable Enhanced Protection (if not already enabled during creation)
+        if (-not $result.EnhancedProtectionEnabled) {
+            Write-Host "  [2/3] Enabling Enhanced Protection..." -ForegroundColor Yellow
+            try {
+                $enhancedDomain = $forwardEmailClient.EnableEnhancedProtection($domain)
+                $result.EnhancedProtectionEnabled = $true
+                $result.VerificationRecord = $enhancedDomain.verification_record
+                $logger.Info("Enhanced Protection enabled", $domain, @{VerificationRecord = $enhancedDomain.verification_record})
+                Write-Host "        ✓ Enhanced Protection enabled" -ForegroundColor Green
+                Write-Host "        → Verification string: $($enhancedDomain.verification_record)" -ForegroundColor Cyan
+            }
+            catch {
+                $errorMessage = $_.Exception.Message
+                $logger.Warning("Failed to enable Enhanced Protection: $errorMessage", $domain, $null)
+                Write-Host "        ⚠ Warning: Could not enable Enhanced Protection: $errorMessage" -ForegroundColor Yellow
+                Write-Host "        → Will use domain ID for verification" -ForegroundColor Cyan
+                # Continue with domain ID as fallback
+                $result.VerificationRecord = $result.ForwardEmailDomainId
+            }
         }
-        catch {
-            $errorMessage = $_.Exception.Message
-            $logger.Warning("Failed to enable Enhanced Protection: $errorMessage", $domain, $null)
-            Write-Host "        ⚠ Warning: Could not enable Enhanced Protection: $errorMessage" -ForegroundColor Yellow
-            Write-Host "        → Will use domain ID for verification" -ForegroundColor Cyan
-            # Continue with domain ID as fallback
-            $result.VerificationRecord = $result.ForwardEmailDomainId
+        else {
+            Write-Host "  [2/3] Enhanced Protection already enabled during creation" -ForegroundColor Green
         }
         
         # Step 3: Configure DNS in Cloudflare
