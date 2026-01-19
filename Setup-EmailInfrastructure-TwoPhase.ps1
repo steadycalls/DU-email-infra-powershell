@@ -478,8 +478,8 @@ foreach ($domain in $domains) {
                 }
                 catch {
                     $errorMessage = $_.Exception.Message
-                    $logger.Warning("Failed to create alias $aliasName: $errorMessage", $domain, $null)
-                    Write-Host "        ✗ Failed to create alias $aliasName: $errorMessage" -ForegroundColor Red
+                    $logger.Warning("Failed to create alias ${aliasName}: ${errorMessage}", $domain, $null)
+                    Write-Host "        ✗ Failed to create alias ${aliasName}: ${errorMessage}" -ForegroundColor Red
                 }
             }
             
