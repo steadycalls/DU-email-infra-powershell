@@ -46,21 +46,22 @@ if (-not (Test-Path -Path $cachedTransferZipPath)) {
 
 # Create temporary extraction directory
 $extractPath = Join-Path -Path $sourcePath -ChildPath $cachedTransferExtractFolder
-if (Test-Path -Path $extractPath) {
-    Write-Host "Removing old extraction folder..." -ForegroundColor Yellow
-    Remove-Item -Path $extractPath -Recurse -Force
-}
 
-Write-Host "Extracting Cached Transfer ZIP file..." -ForegroundColor Cyan
-try {
-    Expand-Archive -Path $cachedTransferZipPath -DestinationPath $extractPath -Force
-    Write-Host "Extraction completed successfully" -ForegroundColor Green
+if (Test-Path -Path $extractPath) {
+    Write-Host "Extracted folder already exists, skipping extraction..." -ForegroundColor Yellow
+    Write-Host ""
+} else {
+    Write-Host "Extracting Cached Transfer ZIP file..." -ForegroundColor Cyan
+    try {
+        Expand-Archive -Path $cachedTransferZipPath -DestinationPath $extractPath -Force
+        Write-Host "Extraction completed successfully" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "ERROR: Failed to extract ZIP file: $($_.Exception.Message)" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host ""
 }
-catch {
-    Write-Host "ERROR: Failed to extract ZIP file: $($_.Exception.Message)" -ForegroundColor Red
-    exit 1
-}
-Write-Host ""
 
 # Verify destination root exists
 if (-not (Test-Path -Path $destinationRoot)) {
