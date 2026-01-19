@@ -170,7 +170,7 @@ class CloudflareClient {
         return $this.CreateDnsRecord($zoneId, $recordType, $recordName, $content, $ttl, $comment, $null)
     }
     
-    [object] CreateDnsRecord([string]$zoneId, [string]$recordType, [string]$recordName, [string]$content, [int]$ttl, [string]$comment, [object]$priority) {
+    [object] CreateDnsRecord([string]$zoneId, [string]$recordType, [string]$recordName, [string]$content, [int]$ttl, [string]$comment, [object]$priority, [bool]$proxied) {
         <#
         .SYNOPSIS
         Creates a DNS record in Cloudflare.
@@ -196,6 +196,9 @@ class CloudflareClient {
         .PARAMETER priority
         Optional priority for MX records (1-65535).
         
+        .PARAMETER proxied
+        Whether to proxy the record through Cloudflare (default: false for TXT/MX).
+        
         .RETURNS
         Created DNS record object.
         #>
@@ -218,12 +221,18 @@ class CloudflareClient {
             $body.priority = $priority
         }
         
-        # TXT records cannot be proxied
-        if ($recordType -eq "TXT") {
+        # Set proxied status - TXT and MX records cannot be proxied
+        if ($recordType -in @("TXT", "MX")) {
             $body.proxied = $false
+        } else {
+            $body.proxied = $proxied
         }
         
         return $this.InvokeWithRetry("POST", $uri, $body)
+    }
+    
+    [object] CreateDnsRecord([string]$zoneId, [string]$recordType, [string]$recordName, [string]$content, [int]$ttl, [string]$comment, [object]$priority) {
+        return $this.CreateDnsRecord($zoneId, $recordType, $recordName, $content, $ttl, $comment, $priority, $false)
     }
     
     [object] UpdateDnsRecord([string]$zoneId, [string]$recordId, [hashtable]$updates) {
@@ -302,10 +311,14 @@ class CloudflareClient {
     }
     
     [object] GetOrCreateDnsRecord([string]$zoneId, [string]$recordType, [string]$recordName, [string]$content, [int]$ttl, [string]$comment) {
-        return $this.GetOrCreateDnsRecord($zoneId, $recordType, $recordName, $content, $ttl, $comment, $null)
+        return $this.GetOrCreateDnsRecord($zoneId, $recordType, $recordName, $content, $ttl, $comment, $null, $false)
     }
     
     [object] GetOrCreateDnsRecord([string]$zoneId, [string]$recordType, [string]$recordName, [string]$content, [int]$ttl, [string]$comment, [object]$priority) {
+        return $this.GetOrCreateDnsRecord($zoneId, $recordType, $recordName, $content, $ttl, $comment, $priority, $false)
+    }
+    
+    [object] GetOrCreateDnsRecord([string]$zoneId, [string]$recordType, [string]$recordName, [string]$content, [int]$ttl, [string]$comment, [object]$priority, [bool]$proxied) {
         <#
         .SYNOPSIS
         Gets an existing DNS record or creates it if it doesn't exist (idempotent).
@@ -326,14 +339,18 @@ class CloudflareClient {
         
         # Record doesn't exist, create it
         Write-Verbose "Creating DNS record: $recordType $recordName = $content"
-        return $this.CreateDnsRecord($zoneId, $recordType, $recordName, $content, $ttl, $comment, $priority)
+        return $this.CreateDnsRecord($zoneId, $recordType, $recordName, $content, $ttl, $comment, $priority, $proxied)
     }
     
     [object] CreateOrUpdateDnsRecord([string]$zoneId, [string]$recordName, [string]$recordType, [string]$content, [int]$ttl) {
-        return $this.CreateOrUpdateDnsRecord($zoneId, $recordName, $recordType, $content, $ttl, $null)
+        return $this.CreateOrUpdateDnsRecord($zoneId, $recordName, $recordType, $content, $ttl, $null, $false)
     }
     
     [object] CreateOrUpdateDnsRecord([string]$zoneId, [string]$recordName, [string]$recordType, [string]$content, [int]$ttl, [object]$priority) {
+        return $this.CreateOrUpdateDnsRecord($zoneId, $recordName, $recordType, $content, $ttl, $priority, $false)
+    }
+    
+    [object] CreateOrUpdateDnsRecord([string]$zoneId, [string]$recordName, [string]$recordType, [string]$content, [int]$ttl, [object]$priority, [bool]$proxied) {
         <#
         .SYNOPSIS
         Creates or updates a DNS record (idempotent operation).
@@ -346,7 +363,7 @@ class CloudflareClient {
         DNS record object (existing or newly created).
         #>
         
-        return $this.GetOrCreateDnsRecord($zoneId, $recordType, $recordName, $content, $ttl, "", $priority)
+        return $this.GetOrCreateDnsRecord($zoneId, $recordType, $recordName, $content, $ttl, "", $priority, $proxied)
     }
 }
 

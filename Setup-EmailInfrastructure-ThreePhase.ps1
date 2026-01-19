@@ -239,6 +239,26 @@ foreach ($domain in $domains) {
                 $stateManager.UpdateDomain($domain, $record)
                 $logger.Info("Domain added to Forward Email", $domain, @{DomainId = $forwardEmailDomain.id})
                 Write-Host "        ✓ Domain added (ID: $($forwardEmailDomain.id))" -ForegroundColor Green
+                
+                # Enable Enhanced Protection immediately after adding domain
+                Write-Host "        → Enabling Enhanced Protection..." -ForegroundColor Cyan
+                try {
+                    $enhancedDomain = $forwardEmailClient.EnableEnhancedProtection($domain)
+                    $record.HasEnhancedProtection = $true
+                    # Store verification string for DNS configuration
+                    if ($enhancedDomain.verification_record) {
+                        $record.VerificationRecord = $enhancedDomain.verification_record
+                    }
+                    $stateManager.UpdateDomain($domain, $record)
+                    $logger.Info("Enhanced Protection enabled", $domain, @{VerificationRecord = $enhancedDomain.verification_record})
+                    Write-Host "        ✓ Enhanced Protection enabled" -ForegroundColor Green
+                }
+                catch {
+                    $errorMessage = $_.Exception.Message
+                    $logger.Warning("Failed to enable Enhanced Protection: $errorMessage", $domain, $null)
+                    Write-Host "        ⚠ Warning: Could not enable Enhanced Protection: $errorMessage" -ForegroundColor Yellow
+                    # Continue anyway - Enhanced Protection is optional
+                }
             }
             catch {
                 $errorMessage = $_.Exception.Message
@@ -282,22 +302,24 @@ foreach ($domain in $domains) {
                 }
                 
                 # Add new quoted TXT verification record
-                $txtValue = "`"forward-email-site-verification=$($record.ForwardEmailDomainId)`""
-                $txtRecord = $cloudflareClient.CreateOrUpdateDnsRecord($zoneId, $domain, "TXT", $txtValue, 3600)
-                $logger.Info("Added TXT verification record", $domain, @{RecordId = $txtRecord.id})
-                Write-Host "        ✓ Added TXT verification record (quoted)" -ForegroundColor Green
+                # Use Enhanced Protection verification string if available, otherwise use domain ID
+                $verificationString = if ($record.VerificationRecord) { $record.VerificationRecord } else { $record.ForwardEmailDomainId }
+                $txtValue = "`"forward-email-site-verification=$verificationString`""
+                $txtRecord = $cloudflareClient.CreateOrUpdateDnsRecord($zoneId, $domain, "TXT", $txtValue, 3600, $null, $false)
+                $logger.Info("Added TXT verification record", $domain, @{RecordId = $txtRecord.id; EnhancedProtection = ($null -ne $record.VerificationRecord)})
+                Write-Host "        ✓ Added TXT verification record (DNS only, quoted)" -ForegroundColor Green
                 
-                # Add catch-all forwarding TXT record
+                # Add catch-all forwarding TXT record (DNS only)
                 $catchAllValue = "`"forward-email=gmb@decisionsunlimited.io`""
-                $catchAllRecord = $cloudflareClient.CreateOrUpdateDnsRecord($zoneId, $domain, "TXT", $catchAllValue, 3600)
+                $catchAllRecord = $cloudflareClient.CreateOrUpdateDnsRecord($zoneId, $domain, "TXT", $catchAllValue, 3600, $null, $false)
                 $logger.Info("Added catch-all forwarding record", $domain, @{RecordId = $catchAllRecord.id})
-                Write-Host "        ✓ Added catch-all forwarding (gmb@decisionsunlimited.io)" -ForegroundColor Green
+                Write-Host "        ✓ Added catch-all forwarding (DNS only, gmb@decisionsunlimited.io)" -ForegroundColor Green
                 
-                # Add MX records
-                $mx1 = $cloudflareClient.CreateOrUpdateDnsRecord($zoneId, $domain, "MX", "mx1.forwardemail.net", 3600, 10)
-                $mx2 = $cloudflareClient.CreateOrUpdateDnsRecord($zoneId, $domain, "MX", "mx2.forwardemail.net", 3600, 20)
+                # Add MX records (DNS only, both priority 10 per Forward Email requirements)
+                $mx1 = $cloudflareClient.CreateOrUpdateDnsRecord($zoneId, $domain, "MX", "mx1.forwardemail.net", 3600, 10, $false)
+                $mx2 = $cloudflareClient.CreateOrUpdateDnsRecord($zoneId, $domain, "MX", "mx2.forwardemail.net", 3600, 10, $false)
                 $logger.Info("Added MX records", $domain, @{MX1 = $mx1.id; MX2 = $mx2.id})
-                Write-Host "        ✓ Added MX records (mx1 + mx2)" -ForegroundColor Green
+                Write-Host "        ✓ Added MX records (DNS only, mx1 + mx2 priority 10)" -ForegroundColor Green
                 
                 $record.State = "DnsConfigured"
                 $stateManager.UpdateDomain($domain, $record)

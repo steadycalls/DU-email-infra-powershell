@@ -242,6 +242,32 @@ class ForwardEmailClient {
             throw
         }
     }
+    
+    [object] EnableEnhancedProtection([string]$domainName) {
+        <#
+        .SYNOPSIS
+        Enables Enhanced Protection for a domain.
+        Enhanced Protection hides forwarding configuration from public DNS lookups
+        using a cryptographically generated random string.
+        
+        .PARAMETER domainName
+        The domain name to enable Enhanced Protection for.
+        
+        .RETURNS
+        Updated domain object with has_enhanced_protection set to true.
+        
+        .NOTES
+        This is a paid feature (typically $3/month plan).
+        Requires domain to be verified with correct MX and TXT records.
+        #>
+        
+        $uri = "$($this.BaseUrl)/domains/$domainName"
+        $body = @{
+            has_enhanced_protection = $true
+        }
+        
+        return $this.InvokeWithRetry("PATCH", $uri, $body)
+    }
 }
 
 function New-ForwardEmailClient {
