@@ -116,7 +116,7 @@ Write-Host "[PASS] API key found" -ForegroundColor Green
 
 # Initialize logger
 try {
-    $logger = New-Logger -LogFile $LogFile -LogLevel $LogLevel
+    $logger = New-Logger -LogFile $LogFile -MinLevel $LogLevel
     Write-Host "[PASS] Logger initialized" -ForegroundColor Green
 }
 catch {
