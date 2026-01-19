@@ -200,26 +200,20 @@ for ($i = 0; $i -lt $totalDomains; $i++) {
     }
     
     try {
-        # Step 1: Add domain to Forward Email (or get existing)
-        Write-Host "  [1/3] Adding domain to Forward Email..." -ForegroundColor Yellow
+        # Step 1: Get existing domain from Forward Email
+        Write-Host "  [1/3] Getting domain from Forward Email..." -ForegroundColor Yellow
         try {
-            $forwardEmailDomain = $forwardEmailClient.CreateDomain($domain)
+            $forwardEmailDomain = $forwardEmailClient.GetDomain($domain)
             $result.ForwardEmailDomainId = $forwardEmailDomain.id
-            $logger.Info("Domain added to Forward Email", $domain, @{DomainId = $forwardEmailDomain.id})
-            Write-Host "        ✓ Domain added (ID: $($forwardEmailDomain.id))" -ForegroundColor Green
+            $logger.Info("Domain found in Forward Email", $domain, @{DomainId = $forwardEmailDomain.id})
+            Write-Host "        ✓ Domain found (ID: $($forwardEmailDomain.id))" -ForegroundColor Green
         }
         catch {
-            # Domain might already exist
-            if ($_.Exception.Message -match "already exists|duplicate") {
-                Write-Host "        → Domain already exists, fetching details..." -ForegroundColor Cyan
-                $forwardEmailDomain = $forwardEmailClient.GetDomain($domain)
-                $result.ForwardEmailDomainId = $forwardEmailDomain.id
-                $logger.Info("Domain already exists", $domain, @{DomainId = $forwardEmailDomain.id})
-                Write-Host "        ✓ Domain found (ID: $($forwardEmailDomain.id))" -ForegroundColor Green
-            }
-            else {
-                throw
-            }
+            $errorMessage = $_.Exception.Message
+            $logger.Error("Domain not found in Forward Email: $errorMessage", $domain, $null)
+            Write-Host "        ✗ ERROR: Domain not found in Forward Email" -ForegroundColor Red
+            Write-Host "        → Please add domain manually at https://forwardemail.net/my-account/domains" -ForegroundColor Yellow
+            throw "Domain not found: $domain"
         }
         
         # Step 2: Enable Enhanced Protection

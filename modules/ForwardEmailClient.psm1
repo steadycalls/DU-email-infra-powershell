@@ -263,10 +263,10 @@ class ForwardEmailClient {
         
         $uri = "$($this.BaseUrl)/domains/$domainName"
         $body = @{
-            has_enhanced_protection = $true
+            plan = "enhanced_protection"
         }
         
-        return $this.InvokeWithRetry("PATCH", $uri, $body)
+        return $this.InvokeWithRetry("PUT", $uri, $body)
     }
 }
 
