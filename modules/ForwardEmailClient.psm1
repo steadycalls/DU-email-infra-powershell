@@ -255,6 +255,36 @@ class ForwardEmailClient {
         }
     }
     
+    [object] GenerateAliasPassword([string]$domainName, [string]$aliasId, [string]$newPassword, [bool]$isOverride) {
+        <#
+        .SYNOPSIS
+        Generates or sets a password for an alias.
+        
+        .PARAMETER domainName
+        The domain name.
+        
+        .PARAMETER aliasId
+        The alias ID.
+        
+        .PARAMETER newPassword
+        Your custom new password to use for the alias.
+        
+        .PARAMETER isOverride
+        Override existing password and delete IMAP storage (use with caution).
+        
+        .RETURNS
+        Alias credentials object with username and password.
+        #>
+        
+        $uri = "$($this.BaseUrl)/domains/$domainName/aliases/$aliasId/generate-password"
+        $body = @{
+            new_password = $newPassword
+            is_override = $isOverride
+        }
+        
+        return $this.InvokeWithRetry("POST", $uri, $body)
+    }
+    
     [object] EnableEnhancedProtection([string]$domainName) {
         <#
         .SYNOPSIS
