@@ -176,27 +176,8 @@ $totalCount = $cityFolders.Count
 foreach ($cityFolder in $cityFolders) {
     Write-Host "[$($successCount + $errorCount + 1)/$totalCount] Processing: $($cityFolder.Name)" -ForegroundColor White
     
-    # Get the extracted Cached Transfer path in this city folder
-    $cityExtractPath = Join-Path -Path $cityFolder.FullName -ChildPath "Cached Browsers\$cachedTransferExtractFolder"
-    
-    if (-not (Test-Path -Path $cityExtractPath)) {
-        Write-Host "  - WARNING: Extracted Cached Transfer folder not found in $($cityFolder.Name)" -ForegroundColor Yellow
-        
-        # Log the error
-        $logEntries += [PSCustomObject]@{
-            Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-            CityFolder = $cityFolder.Name
-            FolderName = "N/A"
-            Status = "ERROR: Cached Transfer not found"
-        }
-        
-        $errorCount++
-        Write-Host ""
-        continue
-    }
-    
     try {
-        # Get 5 random folders from Cached Transfer
+        # Get 5 random folders from the source extracted Cached Transfer
         $randomFolders = $cachedTransferFolders | Get-Random -Count 5
         
         Write-Host "  - Selected 5 random folders to distribute" -ForegroundColor Gray
@@ -211,8 +192,8 @@ foreach ($cityFolder in $cityFolders) {
                 Remove-Item -Path $destinationFolderPath -Recurse -Force
             }
             
-            # Copy from the city's extracted Cached Transfer folder
-            $sourceFolderPath = Join-Path -Path $cityExtractPath -ChildPath $folder.Name
+            # Copy from the source extracted Cached Transfer folder (Alabama-AL)
+            $sourceFolderPath = Join-Path -Path $extractPath -ChildPath $folder.Name
             Copy-Item -Path $sourceFolderPath -Destination $destinationFolderPath -Recurse -Force
             
             Write-Host "    * Copied: $($folder.Name)" -ForegroundColor Gray
