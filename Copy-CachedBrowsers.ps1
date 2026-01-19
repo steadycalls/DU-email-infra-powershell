@@ -53,6 +53,7 @@ Write-Host ""
 # Counter for tracking progress
 $successCount = 0
 $errorCount = 0
+$skippedCount = 0
 $totalCount = $allSubfolders.Count
 
 # Copy the folder to each subfolder
@@ -64,16 +65,17 @@ foreach ($subfolder in $allSubfolders) {
     try {
         # Check if destination already exists
         if (Test-Path -Path $destinationPath) {
-            Write-Host "  - Destination already exists, removing old copy..." -ForegroundColor Yellow
-            Remove-Item -Path $destinationPath -Recurse -Force
+            Write-Host "  - Cached Browsers already exists, skipping copy..." -ForegroundColor Yellow
+            $skippedCount++
         }
-        
-        # Copy the folder
-        Write-Host "  - Copying 'Cached Browsers' to: $destinationPath" -ForegroundColor Gray
-        Copy-Item -Path $sourcePath -Destination $destinationPath -Recurse -Force
-        
-        Write-Host "  - SUCCESS: Copy completed" -ForegroundColor Green
-        $successCount++
+        else {
+            # Copy the folder
+            Write-Host "  - Copying 'Cached Browsers' to: $destinationPath" -ForegroundColor Gray
+            Copy-Item -Path $sourcePath -Destination $destinationPath -Recurse -Force
+            
+            Write-Host "  - SUCCESS: Copy completed" -ForegroundColor Green
+            $successCount++
+        }
     }
     catch {
         Write-Host "  - ERROR: Failed to copy to $($subfolder.Name)" -ForegroundColor Red
@@ -90,6 +92,7 @@ Write-Host "Phase 1 Complete" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Total subfolders: $totalCount" -ForegroundColor White
 Write-Host "Successful copies: $successCount" -ForegroundColor Green
+Write-Host "Skipped (already exists): $skippedCount" -ForegroundColor Yellow
 Write-Host "Failed copies: $errorCount" -ForegroundColor Red
 Write-Host ""
 
