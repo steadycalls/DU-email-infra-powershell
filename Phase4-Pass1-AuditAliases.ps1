@@ -276,9 +276,26 @@ for ($i = 0; $i -lt $totalDomains; $i++) {
         $domainSuccess = 0
         $domainFailed = 0
         
+        $domainSkipped = 0
+        
         foreach ($alias in $aliases) {
             $aliasName = $alias.name
             $aliasId = $alias.id
+            
+            # Skip catch-all aliases (*) and other special aliases that don't support passwords
+            if ($aliasName -eq "*" -or $aliasName -eq "" -or $aliasName -match "^[\*\+]" ) {
+                $domainSkipped++
+                $skippedCount++
+                $auditResults += [PSCustomObject]@{
+                    Domain = $domain
+                    Alias = "$aliasName@$domain"
+                    AliasId = $aliasId
+                    Status = "Skipped"
+                    Attempts = 0
+                    Error = "Catch-all or special alias - passwords not supported"
+                }
+                continue
+            }
             
             if ($DryRun) {
                 Write-Host "        [DRY RUN] Would update password for: $aliasName@$domain" -ForegroundColor Yellow
@@ -329,10 +346,10 @@ for ($i = 0; $i -lt $totalDomains; $i++) {
         }
         
         if (-not $DryRun) {
-            Write-Host "        ✓ Updated: $domainSuccess | ✗ Failed: $domainFailed" -ForegroundColor $(if ($domainFailed -eq 0) { "Green" } else { "Yellow" })
+            Write-Host "        ✓ Updated: $domainSuccess | ✗ Failed: $domainFailed | → Skipped: $domainSkipped" -ForegroundColor $(if ($domainFailed -eq 0) { "Green" } else { "Yellow" })
         }
         
-        $logger.Info("Completed domain", $domain, @{Success = $domainSuccess; Failed = $domainFailed})
+        $logger.Info("Completed domain", $domain, @{Success = $domainSuccess; Failed = $domainFailed; Skipped = $domainSkipped})
     }
     catch {
         $errorMessage = $_.Exception.Message
@@ -391,7 +408,7 @@ if ($DryRun) {
 else {
     Write-Host "✓ Successful:        $successCount" -ForegroundColor Green
     Write-Host "✗ Failed:            $failedCount" -ForegroundColor Red
-    Write-Host "→ Skipped (no aliases): $skippedCount" -ForegroundColor Cyan
+    Write-Host "→ Skipped:           $skippedCount (catch-all/special aliases)" -ForegroundColor Cyan
 }
 
 Write-Host ""
