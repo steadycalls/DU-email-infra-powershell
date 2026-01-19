@@ -7,7 +7,8 @@
 
 # Define destination root
 $destinationRoot = "E:\Alliance Decks"
-$cachedTransferFolder = "Cached Transfer"
+$cachedTransferZipName = "Cached Transfer.zip"
+$cachedTransferExtractFolder = "_CachedTransferExtracted"
 
 # Get the first subfolder in Alliance Decks (alphabetically)
 $firstFolder = Get-ChildItem -Path $destinationRoot -Directory | Sort-Object Name | Select-Object -First 1
@@ -36,12 +37,30 @@ if (-not (Test-Path -Path $sourcePath)) {
     exit 1
 }
 
-# Verify Cached Transfer folder exists inside source
-$cachedTransferPath = Join-Path -Path $sourcePath -ChildPath $cachedTransferFolder
-if (-not (Test-Path -Path $cachedTransferPath)) {
-    Write-Host "ERROR: Cached Transfer folder not found inside: $sourcePath" -ForegroundColor Red
+# Verify Cached Transfer ZIP file exists inside source
+$cachedTransferZipPath = Join-Path -Path $sourcePath -ChildPath $cachedTransferZipName
+if (-not (Test-Path -Path $cachedTransferZipPath)) {
+    Write-Host "ERROR: Cached Transfer ZIP file not found inside: $sourcePath" -ForegroundColor Red
     exit 1
 }
+
+# Create temporary extraction directory
+$extractPath = Join-Path -Path $sourcePath -ChildPath $cachedTransferExtractFolder
+if (Test-Path -Path $extractPath) {
+    Write-Host "Removing old extraction folder..." -ForegroundColor Yellow
+    Remove-Item -Path $extractPath -Recurse -Force
+}
+
+Write-Host "Extracting Cached Transfer ZIP file..." -ForegroundColor Cyan
+try {
+    Expand-Archive -Path $cachedTransferZipPath -DestinationPath $extractPath -Force
+    Write-Host "Extraction completed successfully" -ForegroundColor Green
+}
+catch {
+    Write-Host "ERROR: Failed to extract ZIP file: $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
+}
+Write-Host ""
 
 # Verify destination root exists
 if (-not (Test-Path -Path $destinationRoot)) {
@@ -115,8 +134,8 @@ Write-Host "PHASE 2: Distribute Cached Transfer Folders" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Get all folders inside Cached Transfer
-$cachedTransferFolders = Get-ChildItem -Path $cachedTransferPath -Directory
+# Get all folders inside the extracted Cached Transfer folder
+$cachedTransferFolders = Get-ChildItem -Path $extractPath -Directory
 
 if ($cachedTransferFolders.Count -eq 0) {
     Write-Host "WARNING: No folders found inside Cached Transfer" -ForegroundColor Yellow
@@ -147,11 +166,11 @@ $totalCount = $cityFolders.Count
 foreach ($cityFolder in $cityFolders) {
     Write-Host "[$($successCount + $errorCount + 1)/$totalCount] Processing: $($cityFolder.Name)" -ForegroundColor White
     
-    # Get the Cached Transfer path in this city folder
-    $cityTransferPath = Join-Path -Path $cityFolder.FullName -ChildPath "Cached Browsers\$cachedTransferFolder"
+    # Get the extracted Cached Transfer path in this city folder
+    $cityExtractPath = Join-Path -Path $cityFolder.FullName -ChildPath "Cached Browsers\$cachedTransferExtractFolder"
     
-    if (-not (Test-Path -Path $cityTransferPath)) {
-        Write-Host "  - WARNING: Cached Transfer folder not found in $($cityFolder.Name)" -ForegroundColor Yellow
+    if (-not (Test-Path -Path $cityExtractPath)) {
+        Write-Host "  - WARNING: Extracted Cached Transfer folder not found in $($cityFolder.Name)" -ForegroundColor Yellow
         
         # Log the error
         $logEntries += [PSCustomObject]@{
@@ -182,8 +201,8 @@ foreach ($cityFolder in $cityFolders) {
                 Remove-Item -Path $destinationFolderPath -Recurse -Force
             }
             
-            # Copy from the city's Cached Transfer folder
-            $sourceFolderPath = Join-Path -Path $cityTransferPath -ChildPath $folder.Name
+            # Copy from the city's extracted Cached Transfer folder
+            $sourceFolderPath = Join-Path -Path $cityExtractPath -ChildPath $folder.Name
             Copy-Item -Path $sourceFolderPath -Destination $destinationFolderPath -Recurse -Force
             
             Write-Host "    * Copied: $($folder.Name)" -ForegroundColor Gray
