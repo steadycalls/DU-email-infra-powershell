@@ -167,6 +167,10 @@ class CloudflareClient {
     }
     
     [object] CreateDnsRecord([string]$zoneId, [string]$recordType, [string]$recordName, [string]$content, [int]$ttl, [string]$comment) {
+        return $this.CreateDnsRecord($zoneId, $recordType, $recordName, $content, $ttl, $comment, $null)
+    }
+    
+    [object] CreateDnsRecord([string]$zoneId, [string]$recordType, [string]$recordName, [string]$content, [int]$ttl, [string]$comment, [object]$priority) {
         <#
         .SYNOPSIS
         Creates a DNS record in Cloudflare.
@@ -189,6 +193,9 @@ class CloudflareClient {
         .PARAMETER comment
         Optional comment for the record.
         
+        .PARAMETER priority
+        Optional priority for MX records (1-65535).
+        
         .RETURNS
         Created DNS record object.
         #>
@@ -204,6 +211,11 @@ class CloudflareClient {
         
         if ($comment) {
             $body.comment = $comment
+        }
+        
+        # Add priority for MX records
+        if ($recordType -eq "MX" -and $priority) {
+            $body.priority = $priority
         }
         
         # TXT records cannot be proxied
@@ -290,6 +302,10 @@ class CloudflareClient {
     }
     
     [object] GetOrCreateDnsRecord([string]$zoneId, [string]$recordType, [string]$recordName, [string]$content, [int]$ttl, [string]$comment) {
+        return $this.GetOrCreateDnsRecord($zoneId, $recordType, $recordName, $content, $ttl, $comment, $null)
+    }
+    
+    [object] GetOrCreateDnsRecord([string]$zoneId, [string]$recordType, [string]$recordName, [string]$content, [int]$ttl, [string]$comment, [object]$priority) {
         <#
         .SYNOPSIS
         Gets an existing DNS record or creates it if it doesn't exist (idempotent).
@@ -310,7 +326,27 @@ class CloudflareClient {
         
         # Record doesn't exist, create it
         Write-Verbose "Creating DNS record: $recordType $recordName = $content"
-        return $this.CreateDnsRecord($zoneId, $recordType, $recordName, $content, $ttl, $comment)
+        return $this.CreateDnsRecord($zoneId, $recordType, $recordName, $content, $ttl, $comment, $priority)
+    }
+    
+    [object] CreateOrUpdateDnsRecord([string]$zoneId, [string]$recordName, [string]$recordType, [string]$content, [int]$ttl) {
+        return $this.CreateOrUpdateDnsRecord($zoneId, $recordName, $recordType, $content, $ttl, $null)
+    }
+    
+    [object] CreateOrUpdateDnsRecord([string]$zoneId, [string]$recordName, [string]$recordType, [string]$content, [int]$ttl, [object]$priority) {
+        <#
+        .SYNOPSIS
+        Creates or updates a DNS record (idempotent operation).
+        
+        .DESCRIPTION
+        This method checks if a DNS record with the same type, name, and content exists.
+        If it exists, returns the existing record. If not, creates a new one.
+        
+        .RETURNS
+        DNS record object (existing or newly created).
+        #>
+        
+        return $this.GetOrCreateDnsRecord($zoneId, $recordType, $recordName, $content, $ttl, "", $priority)
     }
 }
 
