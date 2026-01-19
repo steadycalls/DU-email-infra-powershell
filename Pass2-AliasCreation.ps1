@@ -95,8 +95,9 @@ $ErrorActionPreference = "Stop"
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # Import modules
-Import-Module (Join-Path $scriptRoot "ForwardEmailClient.psm1") -Force
-Import-Module (Join-Path $scriptRoot "Logger.psm1") -Force
+$modulesPath = Join-Path $scriptRoot "modules"
+Import-Module (Join-Path $modulesPath "ForwardEmailClient.psm1") -Force
+Import-Module (Join-Path $modulesPath "Logger.psm1") -Force
 
 Write-Host "=" * 80 -ForegroundColor Cyan
 Write-Host "Pass 2: Alias Creation with Retry Logic" -ForegroundColor Cyan
