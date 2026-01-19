@@ -3,11 +3,19 @@
 # 1. Copies C:\Users\kyle\Desktop\Cached Browsers to all subfolders in E:\Alliance Decks
 # 2. Extracts the "Cached Transfer" folder from inside "Cached Browsers"
 # 3. Randomly distributes 5 folders from "Cached Transfer" to each city folder (folders with state abbreviations)
+# 4. Logs the distribution to a CSV file for auditing
 
 # Define source and destination paths
 $sourcePath = "C:\Users\kyle\Desktop\Cached Browsers"
 $destinationRoot = "E:\Alliance Decks"
 $cachedTransferFolder = "Cached Transfer"
+
+# Create log file with timestamp
+$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$logFilePath = Join-Path -Path $destinationRoot -ChildPath "Distribution_Log_$timestamp.csv"
+
+# Initialize log array
+$logEntries = @()
 
 # Verify source folder exists
 if (-not (Test-Path -Path $sourcePath)) {
@@ -111,6 +119,7 @@ if ($cityFolders.Count -eq 0) {
 }
 
 Write-Host "Found $($cityFolders.Count) city folders with state abbreviations" -ForegroundColor Cyan
+Write-Host "Logging distribution to: $logFilePath" -ForegroundColor Cyan
 Write-Host ""
 
 # Reset counters
@@ -127,6 +136,15 @@ foreach ($cityFolder in $cityFolders) {
     
     if (-not (Test-Path -Path $cityTransferPath)) {
         Write-Host "  - WARNING: Cached Transfer folder not found in $($cityFolder.Name)" -ForegroundColor Yellow
+        
+        # Log the error
+        $logEntries += [PSCustomObject]@{
+            Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+            CityFolder = $cityFolder.Name
+            FolderName = "N/A"
+            Status = "ERROR: Cached Transfer not found"
+        }
+        
         $errorCount++
         Write-Host ""
         continue
@@ -153,6 +171,15 @@ foreach ($cityFolder in $cityFolders) {
             Copy-Item -Path $sourceFolderPath -Destination $destinationFolderPath -Recurse -Force
             
             Write-Host "    * Copied: $($folder.Name)" -ForegroundColor Gray
+            
+            # Log the successful copy
+            $logEntries += [PSCustomObject]@{
+                Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+                CityFolder = $cityFolder.Name
+                FolderName = $folder.Name
+                Status = "SUCCESS"
+            }
+            
             $foldersCopied++
         }
         
@@ -162,9 +189,29 @@ foreach ($cityFolder in $cityFolders) {
     catch {
         Write-Host "  - ERROR: Failed to distribute folders to $($cityFolder.Name)" -ForegroundColor Red
         Write-Host "  - Error details: $($_.Exception.Message)" -ForegroundColor Red
+        
+        # Log the error
+        $logEntries += [PSCustomObject]@{
+            Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+            CityFolder = $cityFolder.Name
+            FolderName = "N/A"
+            Status = "ERROR: $($_.Exception.Message)"
+        }
+        
         $errorCount++
     }
     
+    Write-Host ""
+}
+
+# Export log to CSV
+try {
+    $logEntries | Export-Csv -Path $logFilePath -NoTypeInformation -Encoding UTF8
+    Write-Host "Log file created successfully: $logFilePath" -ForegroundColor Green
+    Write-Host ""
+}
+catch {
+    Write-Host "WARNING: Failed to create log file: $($_.Exception.Message)" -ForegroundColor Yellow
     Write-Host ""
 }
 
@@ -180,9 +227,11 @@ Write-Host "  Total city folders: $totalCount" -ForegroundColor White
 Write-Host "  Successful distributions: $successCount" -ForegroundColor Green
 Write-Host "  Failed distributions: $errorCount" -ForegroundColor Red
 Write-Host ""
+Write-Host "Audit Log: $logFilePath" -ForegroundColor Cyan
+Write-Host ""
 
 if ($errorCount -eq 0) {
     Write-Host "All operations completed successfully!" -ForegroundColor Green
 } else {
-    Write-Host "Some operations failed. Please review the errors above." -ForegroundColor Yellow
+    Write-Host "Some operations failed. Please review the errors above and check the log file." -ForegroundColor Yellow
 }
