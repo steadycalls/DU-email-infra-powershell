@@ -398,7 +398,7 @@ foreach ($domain in $domainsToProcess) {
                     $aliasesCreated++
                 }
                 else {
-                    $logger.Warning("Failed to create alias $aliasName: $errorMsg", $domain, $null)
+                    $logger.Warning("Failed to create alias ${aliasName}: ${errorMsg}", $domain, $null)
                 }
             }
         }
