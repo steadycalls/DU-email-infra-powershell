@@ -250,6 +250,67 @@ catch {
     Write-Host ""
 }
 
+# Phase 3: Cleanup - Remove ZIP files and extracted folders
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "PHASE 3: Cleanup Cached Transfer Files" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+
+$cleanupSuccessCount = 0
+$cleanupErrorCount = 0
+$cleanupTotalCount = $allSubfolders.Count + 1  # All subfolders + first folder
+
+# Get all folders including the first one for cleanup
+$allFoldersForCleanup = Get-ChildItem -Path $destinationRoot -Directory | Sort-Object Name
+
+foreach ($folder in $allFoldersForCleanup) {
+    Write-Host "[$($cleanupSuccessCount + $cleanupErrorCount + 1)/$cleanupTotalCount] Cleaning: $($folder.Name)" -ForegroundColor White
+    
+    $zipPath = Join-Path -Path $folder.FullName -ChildPath "Cached Browsers\$cachedTransferZipName"
+    $extractedPath = Join-Path -Path $folder.FullName -ChildPath "Cached Browsers\$cachedTransferExtractFolder"
+    
+    $itemsRemoved = 0
+    
+    try {
+        # Remove ZIP file if exists
+        if (Test-Path -Path $zipPath) {
+            Remove-Item -Path $zipPath -Force
+            Write-Host "  - Removed: Cached Transfer.zip" -ForegroundColor Gray
+            $itemsRemoved++
+        }
+        
+        # Remove extracted folder if exists
+        if (Test-Path -Path $extractedPath) {
+            Remove-Item -Path $extractedPath -Recurse -Force
+            Write-Host "  - Removed: Extracted folder" -ForegroundColor Gray
+            $itemsRemoved++
+        }
+        
+        if ($itemsRemoved -eq 0) {
+            Write-Host "  - No cleanup needed (files not found)" -ForegroundColor Yellow
+        } else {
+            Write-Host "  - SUCCESS: Cleanup completed ($itemsRemoved items removed)" -ForegroundColor Green
+        }
+        
+        $cleanupSuccessCount++
+    }
+    catch {
+        Write-Host "  - ERROR: Failed to cleanup $($folder.Name)" -ForegroundColor Red
+        Write-Host "  - Error details: $($_.Exception.Message)" -ForegroundColor Red
+        $cleanupErrorCount++
+    }
+    
+    Write-Host ""
+}
+
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Phase 3 Complete" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Total folders cleaned: $cleanupTotalCount" -ForegroundColor White
+Write-Host "Successful cleanups: $cleanupSuccessCount" -ForegroundColor Green
+Write-Host "Failed cleanups: $cleanupErrorCount" -ForegroundColor Red
+Write-Host ""
+
 # Final Summary
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "All Operations Complete" -ForegroundColor Cyan
@@ -262,10 +323,15 @@ Write-Host "  Total city folders: $totalCount" -ForegroundColor White
 Write-Host "  Successful distributions: $successCount" -ForegroundColor Green
 Write-Host "  Failed distributions: $errorCount" -ForegroundColor Red
 Write-Host ""
+Write-Host "Phase 3 - Cleanup:" -ForegroundColor White
+Write-Host "  Total folders cleaned: $cleanupTotalCount" -ForegroundColor White
+Write-Host "  Successful cleanups: $cleanupSuccessCount" -ForegroundColor Green
+Write-Host "  Failed cleanups: $cleanupErrorCount" -ForegroundColor Red
+Write-Host ""
 Write-Host "Audit Log: $logFilePath" -ForegroundColor Cyan
 Write-Host ""
 
-if ($errorCount -eq 0) {
+if ($errorCount -eq 0 -and $cleanupErrorCount -eq 0) {
     Write-Host "All operations completed successfully!" -ForegroundColor Green
 } else {
     Write-Host "Some operations failed. Please review the errors above and check the log file." -ForegroundColor Yellow
