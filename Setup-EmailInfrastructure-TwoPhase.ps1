@@ -111,7 +111,7 @@ Write-Host "=" * 80 -ForegroundColor Cyan
 Write-Host ""
 
 try {
-    $config = New-EmailInfraConfig -ConfigFile $ConfigFile
+    $config = New-EmailInfraConfig -ConfigPath $ConfigFile
     Write-Host "Configuration loaded successfully" -ForegroundColor Green
     Write-Host "  - Forward Email API Base: $($config.ForwardEmailApiBase)" -ForegroundColor Gray
     Write-Host "  - Cloudflare API Base: $($config.CloudflareApiBase)" -ForegroundColor Gray
