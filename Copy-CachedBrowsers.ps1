@@ -145,11 +145,20 @@ if ($cachedTransferFolders.Count -eq 0) {
 Write-Host "Found $($cachedTransferFolders.Count) folders inside Cached Transfer" -ForegroundColor Cyan
 Write-Host ""
 
-# Filter city folders (folders with state abbreviations - contain comma and space followed by 2 uppercase letters)
-$cityFolders = $allSubfolders | Where-Object { $_.Name -match ',\s+[A-Z]{2}$' }
+# Get all city folders from inside each state folder
+$cityFolders = @()
+$allFoldersForCleanup = Get-ChildItem -Path $destinationRoot -Directory | Sort-Object Name
+
+foreach ($stateFolder in $allFoldersForCleanup) {
+    # Get subfolders inside each state folder that match city pattern (City, ST)
+    $stateCityFolders = Get-ChildItem -Path $stateFolder.FullName -Directory | Where-Object { $_.Name -match ',\s+[A-Z]{2}$' }
+    if ($stateCityFolders) {
+        $cityFolders += $stateCityFolders
+    }
+}
 
 if ($cityFolders.Count -eq 0) {
-    Write-Host "WARNING: No city folders with state abbreviations found" -ForegroundColor Yellow
+    Write-Host "WARNING: No city folders with state abbreviations found inside state folders" -ForegroundColor Yellow
     exit 0
 }
 
@@ -258,12 +267,25 @@ Write-Host ""
 
 $cleanupSuccessCount = 0
 $cleanupErrorCount = 0
-$cleanupTotalCount = $allSubfolders.Count + 1  # All subfolders + first folder
 
-# Get all folders including the first one for cleanup
-$allFoldersForCleanup = Get-ChildItem -Path $destinationRoot -Directory | Sort-Object Name
+# Build list of all folders to clean (state folders + city folders inside them)
+$foldersToClean = @()
+$stateFolders = Get-ChildItem -Path $destinationRoot -Directory | Sort-Object Name
 
-foreach ($folder in $allFoldersForCleanup) {
+foreach ($stateFolder in $stateFolders) {
+    # Add state folder itself
+    $foldersToClean += $stateFolder
+    
+    # Add city folders inside state folder
+    $cityFoldersInState = Get-ChildItem -Path $stateFolder.FullName -Directory | Where-Object { $_.Name -match ',\s+[A-Z]{2}$' }
+    if ($cityFoldersInState) {
+        $foldersToClean += $cityFoldersInState
+    }
+}
+
+$cleanupTotalCount = $foldersToClean.Count
+
+foreach ($folder in $foldersToClean) {
     Write-Host "[$($cleanupSuccessCount + $cleanupErrorCount + 1)/$cleanupTotalCount] Cleaning: $($folder.Name)" -ForegroundColor White
     
     $zipPath = Join-Path -Path $folder.FullName -ChildPath "Cached Browsers\$cachedTransferZipName"
