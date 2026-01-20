@@ -1,215 +1,89 @@
-# Email Infrastructure Automation for PowerShell
+# Email Infrastructure Automation v2.0
 
-This project provides robust PowerShell 7 scripts to automate the full lifecycle of email infrastructure setup across a large domain portfolio. It integrates with Forward Email and Cloudflare to turn a raw list of domains into fully functional, verified email-forwarding assets with standardized aliases.
+## A Robust, Observable, and Resilient System
 
-This system is designed to be idempotent, state-aware, and resilient to transient failures, making it ideal for managing email infrastructure at scale.
+This document provides an overview of the redesigned email infrastructure automation suite. Version 2.0 addresses critical flaws in the original scripts and introduces a new architecture focused on reliability, visibility, and maintainability.
 
-## 🚀 Quick Start
+---
 
-### Option 1: Full Automation (Three-Phase Script)
-```powershell
-.\Setup-EmailInfrastructure-ThreePhase.ps1 -DomainsFile "data\domains.txt"
-```
+## The Problem
 
-### Option 2: Manual Verification Workflow (Recommended)
-```powershell
-# Step 1: Configure DNS and attempt verification
-.\Setup-EmailInfrastructure-ThreePhase.ps1
+The original automation scripts suffered from a critical flaw: **silent failures in password setting**. This resulted in 100% of aliases being created without passwords, rendering them unusable for IMAP/POP3 access. The root cause was inadequate error handling that completely suppressed API failures.
 
-# Step 2: Manually verify domains in Forward Email dashboard
-# https://forwardemail.net/my-account/domains
+This redesign not only fixes the bug but also re-architects the entire workflow to prevent similar issues in the future.
 
-# Step 3: Run standalone Phase 3 to create aliases
-.\Phase3-AliasGeneration.ps1
-```
+---
 
-## 📦 Available Scripts
+## Core Principles of the New Architecture
 
-### Main Automation Scripts
+This automation suite is built on five core principles:
 
-1. **Setup-EmailInfrastructure-ThreePhase.ps1** - Improved three-phase automation
-   - Phase 1: DNS Configuration (adds domains, configures TXT + MX records)
-   - Phase 2: Domain Verification (improved verification logic)
-   - Phase 3: Alias Generation (creates 50 unique aliases per domain)
-   - Best for: Full automation with better verification
+1.  **Fail-Fast with Visibility**: No more silent failures. Every error is logged, reported, and made visible.
+2.  **Separation of Concerns**: Each script has a single, well-defined responsibility, making the system easier to understand, test, and maintain.
+3.  **Idempotency**: Scripts can be re-run safely without causing unintended side effects. They check the current state before making changes.
+4.  **Progressive Enhancement**: The system is designed to provide core functionality first, with advanced features built on a solid foundation.
+5.  **Observability**: Detailed logs, real-time progress indicators, and comprehensive reports provide deep insight into every operation.
 
-2. **Phase3-AliasGeneration.ps1** - Standalone alias generation
-   - Runs independently after manual domain verification
-   - Processes all verified domains or specific domains
-   - Creates customizable number of aliases per domain (default: 50)
-   - Best for: Manual verification workflow, selective processing
+---
 
-3. **Setup-EmailInfrastructure-TwoPhase.ps1** - Two-phase batch processing
-   - Phase 1: DNS Configuration (batch)
-   - Phase 2: Verification & Aliases (batch)
-   - Note: Use three-phase script for better verification
+## Redesigned Workflow
 
-4. **Setup-EmailInfrastructure.ps1** - Original sequential processing
-   - Processes domains one at a time
-   - Note: Slower than batch processing scripts
+The automation is now structured into clear, sequential phases, each with a specific purpose.
 
-### Key Improvements in Three-Phase Script
+| Phase | Description |
+| :--- | :--- |
+| **Phase 1: DNS & Verification** | Enables Enhanced Protection, updates DNS records, and verifies propagation. |
+| **Phase 2: Alias Creation** | Creates all required aliases **without** setting passwords. This isolates the creation logic. |
+| **Phase 3: Password Management** | A new, dedicated phase for setting and verifying passwords with robust error handling and retry logic. |
+| **Phase 4: Audit & Reporting** | Performs a final health check and generates comprehensive reports on the entire process. |
 
-- **Better Verification**: Uses GetDomain() instead of VerifyDomain() for status checks
-- **Longer Wait Times**: 180s DNS propagation wait (up from 120s)
-- **More Retries**: 5 verification attempts with 15s delays (up from 3 with 10s)
-- **Detailed Errors**: Shows exactly which DNS records are missing (MX, TXT)
-- **Standalone Phase 3**: Can run alias generation independently
+---
 
-### Phase 3 Features
+## Key Improvements in Version 2.0
 
-- Creates info@ alias + 49 unique generated aliases per domain
-- 60/40 mix of firstName vs firstName.lastName format
-- Global uniqueness tracking across all domains
-- Exports all aliases to data/aliases.txt
-- Safe to re-run - skips domains that already have aliases
+### 1. Dedicated Password Phase
 
-## ✨ Features
+Password management is now a separate, multi-pass phase:
 
-- **Bulk Domain Processing**: Reads a plain-text list of domains for batch processing.
-- **Forward Email Integration**: Automatically adds domains to your Forward Email account.
-- **Cloudflare DNS Automation**: Creates and verifies required TXT and MX records in Cloudflare.
-- **Resilient Verification**: Implements polling with exponential backoff to handle DNS propagation delays.
-- **Standardized Alias Creation**: Populates each verified domain with a predefined set of email aliases.
-- **State Persistence**: Tracks the progress of each domain in a JSON state file, allowing for safe interruption and resumption.
-- **Comprehensive Logging**: Generates structured logs for observability and debugging.
-- **Error Handling & Reporting**: Isolates failures, logs detailed error reasons, and exports a list of failed domains for manual review.
-- **Concurrency Control**: Processes multiple domains concurrently to improve throughput.
+-   **Pass 3-1: Diagnose**: Tests the password API to ensure it's working before attempting bulk operations.
+-   **Pass 3-2: Set Passwords**: Sets passwords for all aliases with intelligent retry logic.
+-   **Pass 3-3: Verify**: Confirms that passwords were set correctly.
+-   **Pass 3-4: Report**: Generates a detailed report of successes and failures.
 
-### Additional Documentation
+### 2. Robust Diagnostic Tools
 
-- **QUICK-START-PHASE3.md** - Quick reference for standalone Phase 3
-- **PHASE3-STANDALONE-GUIDE.md** - Comprehensive Phase 3 usage guide
-- **IMPLEMENTATION-SUMMARY.md** - Technical overview and improvements
-- **PHASE3-IMPROVEMENTS.md** - Detailed improvements documentation
-- **PRE-FLIGHT-CHECKLIST.md** - Execution checklist and troubleshooting
+A new suite of diagnostic tools helps you identify and resolve issues quickly:
 
-## 📋 Requirements
+-   `Validate-Environment.ps1`: Checks all prerequisites, from PowerShell version to API key validity.
+-   `Test-PasswordAPI.ps1`: Performs a deep dive into the password generation API to diagnose the exact cause of any failures.
 
-- **PowerShell 7+**: The script is built on modern PowerShell features and requires version 7 or higher.
-- **Forward Email Account**: A Forward Email account with an API key.
-- **Cloudflare Account**: A Cloudflare account managing the domains you wish to configure, with an API token.
+### 3. State Management & Resumability
 
-## Setup and Configuration
+The system now tracks its progress in a `state.json` file. If a script is interrupted, you can simply re-run it with the `-Resume` flag to pick up where it left off, saving significant time and avoiding duplicate operations.
 
-### 1. Clone the Repository
+### 4. Parallel Processing
 
-```bash
-git clone <repository_url>
-cd email-infrastructure-automation-ps
-```
+Leverage the full power of your machine by running operations in parallel. The new scripts support the `-Parallel` flag, which can speed up execution by 5-10x. A throttle limit ensures that you don't overwhelm the API.
 
-### 2. Configure Environment Variables
+### 5. Comprehensive Logging and Reporting
 
-The script requires API credentials to be set as environment variables. Create a `.env` file in the root of the project directory by copying the example file:
+-   **Structured JSON Logs**: For easy parsing and analysis.
+-   **Real-time Console Output**: With color-coded status and progress indicators.
+-   **Detailed CSV Reports**: For every critical operation, including a list of any failed aliases and the specific error messages.
+-   **Execution Summaries**: Get a high-level overview of the entire run, including success rates and duration.
 
-```bash
-cp .env.example .env
-```
+---
 
-Now, edit the `.env` file and add your API credentials:
+## Getting Started
 
-```dotenv
-# .env
+1.  **Read the Architecture**: Understand the new workflow by reading `ARCHITECTURE.md`.
+2.  **Deploy the Solution**: Follow the step-by-step instructions in `DEPLOYMENT.md`.
+3.  **Run the Diagnostics**: Before you begin, run `Validate-Environment.ps1` to ensure your system is ready.
+4.  **Execute the Workflow**: Follow the user guide to run the automation phases.
+5.  **Troubleshoot**: If you encounter issues, consult `TROUBLESHOOTING.md`.
 
-# Forward Email API Key (required)
-FORWARD_EMAIL_API_KEY="your_forward_email_api_key_here"
+---
 
-# Cloudflare API Token (required)
-# Must have DNS:Edit permissions for the relevant zones
-CLOUDFLARE_API_TOKEN="your_cloudflare_api_token_here"
+## Conclusion
 
-# Cloudflare Account ID (optional, but recommended)
-CLOUDFLARE_ACCOUNT_ID="your_cloudflare_account_id_here"
-```
-
-### 3. Prepare Your Domain List
-
-Create a text file (e.g., `data/domains.txt`) and list all the domains you want to process, with one domain per line. The script will ignore empty lines and lines starting with `#`.
-
-```text
-# data/domains.txt
-
-example.com
-example.net
-# this-domain-will-be-ignored.org
-another-domain.com
-```
-
-### 4. Customize Aliases (Optional)
-
-The default aliases to be created are defined in `modules/Config.psm1`. You can modify this file to change the default alias list, or you can provide a custom JSON configuration file. See `examples/config-example.json` for the format.
-
-## Usage
-
-Once configured, you can run the main script from your PowerShell 7 terminal.
-
-### Basic Execution
-
-**Three-Phase Script (Recommended):**
-```powershell
-.\Setup-EmailInfrastructure-ThreePhase.ps1 -DomainsFile data\domains.txt
-```
-
-**Standalone Phase 3 (After Manual Verification):**
-```powershell
-.\Phase3-AliasGeneration.ps1
-```
-
-**Original Sequential Script:**
-```powershell
-.\Setup-EmailInfrastructure.ps1 -DomainsFile data\domains.txt
-```
-
-### Running the Setup Test
-
-Before running the main script, it is highly recommended to run the test script to validate your environment and configuration:
-
-```powershell
-.\Test-Setup.ps1
-```
-
-This will check your PowerShell version, module integrity, environment variables, and API connectivity without making any changes.
-
-### Command-Line Parameters
-
-The script accepts several parameters to customize its behavior:
-
-- `-DomainsFile <string>`: Path to the input domains file. (Default: `data/domains.txt`)
-- `-ConfigFile <string>`: Optional path to a JSON configuration file to override defaults.
-- `-StateFile <string>`: Path for the state persistence file. (Default: `data/state.json`)
-- `-LogFile <string>`: Path for the log file. (Default: `logs/automation.log`)
-- `-LogLevel <string>`: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL). (Default: `INFO`)
-- `-ConcurrentDomains <int>`: Number of domains to process in parallel. (Default: `5`)
-- `-DryRun`: Switch to perform validation and show what would be done without making any API calls.
-
-For detailed usage examples, see the [USAGE.md](USAGE.md) file.
-
-## Architecture
-
-The system is built on five modular components that work together to process domains through a well-defined state machine. For detailed architecture diagrams and technical documentation, see [DIAGRAMS.md](DIAGRAMS.md).
-
-![System Architecture](diagrams/system-architecture.png)
-
-## How It Works
-
-The script follows a state machine for each domain, ensuring that each step is completed successfully before moving to the next. The state is saved continuously, so if the script is stopped, it can be restarted and will resume from where it left off.
-
-### Domain States
-
-1.  **Pending**: The initial state of a domain loaded from the input file.
-2.  **ForwardEmailAdded**: The domain has been successfully added to Forward Email.
-3.  **DnsConfigured**: The required MX and TXT records have been created in Cloudflare.
-4.  **Verifying**: The script is actively polling Forward Email to confirm DNS verification.
-5.  **Verified**: The domain has been successfully verified by Forward Email.
-6.  **AliasesCreated**: The predefined email aliases have been created for the domain.
-7.  **Completed**: The domain has been fully processed successfully.
-8.  **Failed**: An unrecoverable error occurred. Details are logged and saved to `data/failures.json`.
-
-## Troubleshooting
-
-- **Authentication Errors**: Double-check that your API keys in the `.env` file are correct and have the necessary permissions (DNS:Edit for Cloudflare).
-- **Domain Not Found in Cloudflare**: Ensure the domains you are processing are active in the Cloudflare account associated with your API token.
-- **Verification Timeouts**: If domains consistently fail with verification timeouts, you may need to increase the `VerificationMaxAttempts` or `VerificationPollInterval` settings in the configuration.
-
-For more detailed troubleshooting steps, see the [TROUBLESHOOTING.md](TROUBLESHOOTING.md) file.
+Version 2.0 is more than just a bug fix; it's a complete overhaul that brings enterprise-grade reliability and observability to your email infrastructure automation. By embracing modern DevOps principles, this new system provides the confidence and visibility needed to manage a large domain portfolio effectively.

@@ -1,131 +1,95 @@
 # Quick Start Guide
 
-This guide will help you get started with the Email Infrastructure Automation in under 5 minutes.
+Get up and running with the new email infrastructure automation in 5 steps.
 
-## Prerequisites
+---
 
-- **PowerShell 7+** installed on your system
-- **Forward Email account** with an API key
-- **Cloudflare account** managing your domains with an API token
-
-## Step 1: Get Your API Credentials
-
-### Forward Email API Key
-
-1. Log in to [Forward Email](https://forwardemail.net/)
-2. Navigate to **My Account** → **Security**
-3. Generate or copy your API key
-
-### Cloudflare API Token
-
-1. Log in to [Cloudflare Dashboard](https://dash.cloudflare.com/)
-2. Go to **My Profile** → **API Tokens**
-3. Click **Create Token**
-4. Use the **Edit zone DNS** template
-5. Select the zones (domains) you want to manage
-6. Create the token and copy it immediately (you won't see it again)
-
-## Step 2: Configure the Script
-
-1. **Copy the environment template:**
-
-   ```powershell
-   Copy-Item .env.example .env
-   ```
-
-2. **Edit the `.env` file** and add your credentials:
-
-   ```dotenv
-   FORWARD_EMAIL_API_KEY="your_actual_api_key_here"
-   CLOUDFLARE_API_TOKEN="your_actual_api_token_here"
-   ```
-
-3. **Load environment variables** (if not automatically loaded):
-
-   ```powershell
-   Get-Content .env | ForEach-Object {
-       if ($_ -match '^([^#][^=]+)=(.*)$') {
-           [Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process')
-       }
-   }
-   ```
-
-## Step 3: Prepare Your Domain List
-
-Create a file called `data/domains.txt` and list your domains (one per line):
-
-```text
-example.com
-example.net
-example.org
-```
-
-## Step 4: Test Your Setup
-
-Run the test script to validate your configuration:
+## Step 1: Validate Your Environment
 
 ```powershell
-.\Test-Setup.ps1
+.\Validate-Environment.ps1
 ```
 
-If all tests pass, you're ready to go!
+**Expected Result**: `STATUS: READY` or `STATUS: READY WITH WARNINGS`
 
-## Step 5: Run the Automation
+If you see `STATUS: FAILED`, fix the reported issues before proceeding.
 
-Execute the main script:
+---
+
+## Step 2: Diagnose Password API
 
 ```powershell
-.\Setup-EmailInfrastructure.ps1 -DomainsFile data\domains.txt
+.\Test-PasswordAPI.ps1
 ```
 
-The script will:
-- Add each domain to Forward Email
-- Configure DNS records in Cloudflare
-- Verify domain ownership
-- Create email aliases
-- Report results
+**Expected Result**: All tests pass, or warnings with actionable recommendations.
 
-## What Happens Next?
+If tests fail, review the error messages and follow the recommendations. Common issues:
 
-The script will process each domain through the following stages:
+-   **403 Forbidden**: Your plan may not support IMAP/passwords. Upgrade to Enhanced Protection.
+-   **401 Unauthorized**: API key is invalid or expired. Check your API key.
+-   **400 Bad Request**: Alias configuration may not support passwords. Check alias type.
 
-1. **Adding to Forward Email** (~5 seconds per domain)
-2. **Configuring DNS** (~10 seconds per domain)
-3. **Verifying DNS** (~5-20 minutes, depends on DNS propagation)
-4. **Creating Aliases** (~5 seconds per domain)
+---
 
-You can safely interrupt the script at any time (Ctrl+C). When you run it again, it will resume from where it left off.
+## Step 3: Set Passwords for All Aliases
 
-## Monitoring Progress
+```powershell
+.\Pass3-2-SetPasswords.ps1
+```
 
-- **Console Output**: Real-time status updates with color-coded messages
-- **Log File**: Detailed logs in `logs/automation.log`
-- **State File**: Current status of all domains in `data/state.json`
+**For faster execution with parallel processing**:
 
-## Handling Failures
+```powershell
+.\Pass3-2-SetPasswords.ps1 -Parallel -ThrottleLimit 10
+```
 
-If any domains fail, they will be reported in:
-- The console summary at the end
-- The `data/failures.json` file with detailed error information
+**To resume an interrupted run**:
 
-You can review the errors, fix any issues, and re-run the script to retry failed domains.
+```powershell
+.\Pass3-2-SetPasswords.ps1 -Resume
+```
+
+---
+
+## Step 4: Review Results
+
+Check the output files in the `data/` directory:
+
+-   `pass3-2-password-results.csv`: List of failed aliases with error details
+-   `pass3-2-summary.json`: Execution summary with success rate
+
+**Success Rate ≥ 95%**: Excellent! Proceed to verification.  
+**Success Rate 80-95%**: Good, but review failures and consider re-running.  
+**Success Rate < 80%**: Investigate the root cause using the CSV report.
+
+---
+
+## Step 5: Verify and Export
+
+Run the export script to generate a fresh report:
+
+```powershell
+.\Export-Aliases.ps1
+```
+
+Check the `HasPassword` column in the exported CSV. It should now show `True` for most aliases (excluding catch-all aliases).
+
+---
+
+## Troubleshooting
+
+If you encounter issues:
+
+1.  **Re-run `Test-PasswordAPI.ps1`** to diagnose API-specific problems.
+2.  **Check the log files** in the `logs/` directory for detailed error messages.
+3.  **Review the CSV reports** in the `data/` directory for specific failures.
+4.  **Consult `TROUBLESHOOTING.md`** for common issues and solutions.
+
+---
 
 ## Next Steps
 
-- Read the [USAGE.md](USAGE.md) for advanced usage options
-- Check [TROUBLESHOOTING.md](TROUBLESHOOTING.md) if you encounter issues
-- Review [ARCHITECTURE.md](ARCHITECTURE.md) to understand how it works
-
-## Common First-Run Issues
-
-### "Zone not found for domain"
-
-**Solution**: Ensure the domain is added to your Cloudflare account and that your API token has access to it.
-
-### "Domain verification timed out"
-
-**Solution**: DNS propagation can take time. Wait 10-15 minutes and re-run the script. It will resume verification automatically.
-
-### "Rate limited"
-
-**Solution**: The script handles this automatically. If you see this frequently, reduce the `-ConcurrentDomains` parameter.
+-   **Update existing scripts**: Remove password-setting logic from `Pass2-AliasCreation.ps1`.
+-   **Integrate Phase 3**: Add the new password phase to your overall workflow.
+-   **Monitor and iterate**: Run the workflow on a small subset first, then scale up.
