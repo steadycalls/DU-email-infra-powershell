@@ -430,9 +430,11 @@ if ($Parallel) {
     Write-Host "Processing domains in parallel (throttle limit: $ThrottleLimit)..." -ForegroundColor Cyan
     Write-Host ""
     
-    $allResults = $domains | ForEach-Object -Parallel {
-        $domain = $_
-        $domainIndex = $using:domains.IndexOf($domain) + 1
+    $domainsWithIndex = $domains | ForEach-Object -Begin { $i = 0 } -Process { [PSCustomObject]@{ Index = ++$i; Domain = $_ } }
+    
+    $allResults = $domainsWithIndex | ForEach-Object -Parallel {
+        $domainIndex = $_.Index
+        $domain = $_.Domain
         $totalDomains = $using:totalDomains
         
         # Import modules in parallel context
