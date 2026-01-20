@@ -79,7 +79,7 @@ if (-not (Test-Path $logDir)) {
     New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 }
 
-$logger = [Logger]::new($logFilePath, $LogLevel)
+$logger = New-Logger -LogFile $logFilePath -MinLevel $LogLevel
 Write-Host "[PASS] Logger initialized" -ForegroundColor Green
 
 #==============================================================================
@@ -104,11 +104,7 @@ $retryConfig = @{
     RateLimitDelay = 60
 }
 
-$forwardEmailClient = [ForwardEmailClient]::new(
-    $apiKey,
-    "https://api.forwardemail.net/v1",
-    $retryConfig
-)
+$forwardEmailClient = New-ForwardEmailClient -ApiKey $apiKey -RetryConfig $retryConfig
 
 Write-Host "[PASS] Forward Email client initialized" -ForegroundColor Green
 

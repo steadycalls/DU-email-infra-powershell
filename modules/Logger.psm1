@@ -126,4 +126,5 @@ function New-Logger {
     return [Logger]::new($LogFile, $MinLevel)
 }
 
+# Export the Logger class and LogLevel enum so they can be used directly
 Export-ModuleMember -Function New-Logger
