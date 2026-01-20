@@ -195,12 +195,23 @@ for ($i = 0; $i -lt $totalDomains; $i++) {
                     $hasPassword = $alias.has_password
                 }
                 
+                # Check for creation date
+                # Note: Forward Email API doesn't expose created_at in the standard response
+                $createdDate = "Not Available"
+                if ($alias.PSObject.Properties.Name -contains "created_at") {
+                    $createdDate = $alias.created_at
+                }
+                elseif ($alias.PSObject.Properties.Name -contains "createdAt") {
+                    $createdDate = $alias.createdAt
+                }
+                
                 $exportedAliases += [PSCustomObject]@{
                     Domain = $domain
                     Alias = "$aliasName@$domain"
                     Recipients = $recipients
                     HasPassword = $hasPassword
                     IsEnabled = $alias.is_enabled
+                    CreatedDate = $createdDate
                     AliasId = $alias.id
                 }
                 
