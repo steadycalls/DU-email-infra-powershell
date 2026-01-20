@@ -37,7 +37,8 @@
     Initial delay in seconds before first retry (default: 2).
 
 .PARAMETER RateLimitDelay
-    Delay in seconds between password operations (default: 2).
+    Delay in seconds between API operations (default: 3).
+    Applied after ListAliases calls and between password operations.
 
 .PARAMETER Parallel
     Enable parallel processing of domains (default: false).
@@ -89,7 +90,7 @@ param(
     [int]$InitialRetryDelay = 2,
     
     [Parameter(Mandatory=$false)]
-    [int]$RateLimitDelay = 2,
+    [int]$RateLimitDelay = 3,
     
     [Parameter(Mandatory=$false)]
     [switch]$Parallel,
@@ -338,6 +339,9 @@ function Process-DomainPasswords {
     try {
         # Retrieve all aliases for the domain
         $aliasesResponse = $Client.ListAliases($Domain)
+        
+        # Rate limiting after API call
+        Start-Sleep -Seconds $RateDelay
         
         # Handle pagination response
         $aliases = if ($aliasesResponse -is [array]) {
