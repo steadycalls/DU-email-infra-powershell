@@ -59,10 +59,14 @@ class ForwardEmailClient {
                 
                 Write-Verbose "Request failed with status code: $statusCode"
                 
-                # Handle rate limiting
+                # Handle rate limiting - wait 6 hours
                 if ($statusCode -eq 429) {
-                    Write-Warning "Rate limited. Waiting $($this.RateLimitDelay) seconds..."
-                    Start-Sleep -Seconds $this.RateLimitDelay
+                    $rateLimitWait = 21600  # 6 hours in seconds
+                    $waitUntil = (Get-Date).AddSeconds($rateLimitWait)
+                    Write-Warning "Rate limited (429). Waiting 6 hours until $($waitUntil.ToString('yyyy-MM-dd HH:mm:ss'))..."
+                    Write-Host "Rate limit hit at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss'). Will resume at $($waitUntil.ToString('yyyy-MM-dd HH:mm:ss'))" -ForegroundColor Yellow
+                    Start-Sleep -Seconds $rateLimitWait
+                    Write-Host "Resuming after 6-hour rate limit wait..." -ForegroundColor Green
                     continue
                 }
                 
