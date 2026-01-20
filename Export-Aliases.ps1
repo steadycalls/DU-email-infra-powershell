@@ -29,10 +29,18 @@ Author: Manus AI
 Date: 2026-01-19
 #>
 
+[CmdletBinding()]
 param(
+    [Parameter(Mandatory=$false)]
     [string]$DomainsFile = "data/domains.txt",
+    
+    [Parameter(Mandatory=$false)]
     [string]$OutputFile = "data/exported-aliases.csv",
+    
+    [Parameter(Mandatory=$false)]
     [string]$LogFile = "logs/export-aliases.log",
+    
+    [Parameter(Mandatory=$false)]
     [ValidateSet("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")]
     [string]$LogLevel = "INFO"
 )
@@ -44,15 +52,15 @@ $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 # IMPORT MODULES
 #==============================================================================
 
+# Import modules
+$modulesPath = Join-Path $scriptRoot "modules"
+Import-Module (Join-Path $modulesPath "ForwardEmailClient.psm1") -Force
+Import-Module (Join-Path $modulesPath "Logger.psm1") -Force
+
 Write-Host "=" * 80 -ForegroundColor Cyan
 Write-Host "Export Aliases Script" -ForegroundColor Cyan
 Write-Host "=" * 80 -ForegroundColor Cyan
 Write-Host ""
-
-# Import modules
-$modulesPath = Join-Path $scriptRoot "modules"
-Import-Module (Join-Path $modulesPath "Logger.psm1") -Force
-Import-Module (Join-Path $modulesPath "ForwardEmailClient.psm1") -Force
 
 Write-Host "[PASS] Modules imported" -ForegroundColor Green
 
