@@ -376,6 +376,35 @@ for ($i = 0; $i -lt $totalDomains; $i++) {
     Write-Host "=" * 80 -ForegroundColor DarkGray
     $logger.Info("Creating aliases $domainIndex/$totalDomains", $domain, $null)
     
+    # Check if domain already has 50+ aliases
+    try {
+        Write-Host "  [1/2] Checking existing aliases..." -ForegroundColor Yellow
+        $existingAliases = $forwardEmailClient.ListAliases($domain)
+        $existingCount = $existingAliases.Count
+        
+        if ($existingCount -ge 50) {
+            Write-Host "  → Domain already has $existingCount aliases (50+ required). Skipping." -ForegroundColor Cyan
+            $logger.Info("Domain already has sufficient aliases, skipping", $domain, @{ExistingCount = $existingCount})
+            $results += @{
+                Domain = $domain
+                Success = $true
+                AliasCount = $existingCount
+                Attempts = 0
+                Error = "Skipped - already has $existingCount aliases"
+            }
+            $successCount++
+            Write-Host ""
+            continue
+        }
+        else {
+            Write-Host "  → Found $existingCount existing aliases. Will create more." -ForegroundColor Yellow
+        }
+    }
+    catch {
+        Write-Host "  ⚠ Could not check existing aliases: $($_.Exception.Message)" -ForegroundColor Yellow
+        $logger.Warning("Could not check existing aliases: $($_.Exception.Message)", $domain, $null)
+    }
+    
     $result = @{
         Domain = $domain
         Success = $false
@@ -399,7 +428,7 @@ for ($i = 0; $i -lt $totalDomains; $i++) {
         }
         
         try {
-            Write-Host "  [Attempt $attempt/$MaxRetries] Creating $AliasCount aliases..." -ForegroundColor Yellow
+            Write-Host "  [2/2] [Attempt $attempt/$MaxRetries] Creating $AliasCount aliases..." -ForegroundColor Yellow
             
             $domainAliases = Create-AliasesForDomain `
                 -Domain $domain `
