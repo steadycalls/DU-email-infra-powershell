@@ -136,25 +136,24 @@ Write-Host ""
 Write-Host "File Structure" -ForegroundColor Cyan
 Write-Host "-" * 80 -ForegroundColor DarkGray
 
-$baseDir = Split-Path -Parent $scriptRoot
-
+# The scripts are in the root directory, modules are in ./modules
 Test-Requirement -Category "Files" -Name "Modules Directory" -Test {
-    Test-Path (Join-Path $baseDir "modules")
+    Test-Path (Join-Path $scriptRoot "modules")
 } -SuccessMessage "Modules directory exists" `
-  -FailureMessage "Modules directory not found at: $(Join-Path $baseDir 'modules')"
+  -FailureMessage "Modules directory not found at: $(Join-Path $scriptRoot 'modules')"
 
 Test-Requirement -Category "Files" -Name "ForwardEmailClient Module" -Test {
-    Test-Path (Join-Path $baseDir "modules/ForwardEmailClient.psm1")
+    Test-Path (Join-Path $scriptRoot "modules/ForwardEmailClient.psm1")
 } -SuccessMessage "ForwardEmailClient.psm1 found" `
   -FailureMessage "ForwardEmailClient.psm1 not found"
 
 Test-Requirement -Category "Files" -Name "Logger Module" -Test {
-    Test-Path (Join-Path $baseDir "modules/Logger.psm1")
+    Test-Path (Join-Path $scriptRoot "modules/Logger.psm1")
 } -SuccessMessage "Logger.psm1 found" `
   -FailureMessage "Logger.psm1 not found"
 
 Test-Requirement -Category "Files" -Name "Data Directory" -Test {
-    $dataDir = Join-Path $baseDir "data"
+    $dataDir = Join-Path $scriptRoot "data"
     if (-not (Test-Path $dataDir)) {
         New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
     }
@@ -163,7 +162,7 @@ Test-Requirement -Category "Files" -Name "Data Directory" -Test {
   -FailureMessage "Could not create data directory"
 
 Test-Requirement -Category "Files" -Name "Logs Directory" -Test {
-    $logsDir = Join-Path $baseDir "logs"
+    $logsDir = Join-Path $scriptRoot "logs"
     if (-not (Test-Path $logsDir)) {
         New-Item -ItemType Directory -Path $logsDir -Force | Out-Null
     }
@@ -172,9 +171,9 @@ Test-Requirement -Category "Files" -Name "Logs Directory" -Test {
   -FailureMessage "Could not create logs directory"
 
 Test-Requirement -Category "Files" -Name "Domains File" -Test {
-    Test-Path (Join-Path $baseDir "data/domains.txt")
+    Test-Path (Join-Path $scriptRoot "data/domains.txt")
 } -SuccessMessage "domains.txt found" `
-  -FailureMessage "domains.txt not found at: $(Join-Path $baseDir 'data/domains.txt')" `
+  -FailureMessage "domains.txt not found at: $(Join-Path $scriptRoot 'data/domains.txt')" `
   -Severity "WARNING"
 
 Write-Host ""
@@ -202,7 +201,7 @@ Write-Host "-" * 80 -ForegroundColor DarkGray
 
 Test-Requirement -Category "Modules" -Name "Load ForwardEmailClient" -Test {
     try {
-        Import-Module (Join-Path $baseDir "modules/ForwardEmailClient.psm1") -Force -ErrorAction Stop
+        Import-Module (Join-Path $scriptRoot "modules/ForwardEmailClient.psm1") -Force -ErrorAction Stop
         $true
     }
     catch {
@@ -213,7 +212,7 @@ Test-Requirement -Category "Modules" -Name "Load ForwardEmailClient" -Test {
 
 Test-Requirement -Category "Modules" -Name "Load Logger" -Test {
     try {
-        Import-Module (Join-Path $baseDir "modules/Logger.psm1") -Force -ErrorAction Stop
+        Import-Module (Join-Path $scriptRoot "modules/Logger.psm1") -Force -ErrorAction Stop
         $true
     }
     catch {

@@ -50,7 +50,7 @@ $ErrorActionPreference = "Stop"
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # Import modules
-$modulesPath = Join-Path (Split-Path -Parent $scriptRoot) "modules"
+$modulesPath = Join-Path $scriptRoot "modules"
 Import-Module (Join-Path $modulesPath "ForwardEmailClient.psm1") -Force
 Import-Module (Join-Path $modulesPath "Logger.psm1") -Force
 
@@ -204,7 +204,7 @@ Write-Host "-" * 80 -ForegroundColor DarkGray
 
 # Get test domain
 if (-not $TestDomain) {
-    $domainsFilePath = Join-Path (Split-Path -Parent $scriptRoot) "data/domains.txt"
+    $domainsFilePath = Join-Path $scriptRoot "data/domains.txt"
     if (Test-Path $domainsFilePath) {
         $domainsList = Get-Content $domainsFilePath | Where-Object { $_ -match '\S' } | ForEach-Object { $_.Trim() }
         $TestDomain = $domainsList[0]

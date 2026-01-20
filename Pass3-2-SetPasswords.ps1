@@ -110,10 +110,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$baseDir = Split-Path -Parent $scriptRoot
 
 # Import modules
-$modulesPath = Join-Path $baseDir "modules"
+$modulesPath = Join-Path $scriptRoot "modules"
 Import-Module (Join-Path $modulesPath "ForwardEmailClient.psm1") -Force
 Import-Module (Join-Path $modulesPath "Logger.psm1") -Force
 
@@ -220,7 +219,7 @@ Write-Host ""
 $domainsFilePath = if ([System.IO.Path]::IsPathRooted($DomainsFile)) {
     $DomainsFile
 } else {
-    Join-Path $baseDir $DomainsFile
+    Join-Path $scriptRoot $DomainsFile
 }
 
 if (-not (Test-Path $domainsFilePath)) {
